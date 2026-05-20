@@ -1,0 +1,2334 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brain1 · Fussball Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  /* Backgrounds */
+  --bg0: #070c13;
+  --bg1: #0c1520;
+  --bg2: #111d2c;
+  --bg3: #172436;
+  --bg4: #1e2f42;
+
+  /* Borders */
+  --b1: rgba(255,255,255,0.05);
+  --b2: rgba(255,255,255,0.09);
+  --b3: rgba(255,255,255,0.15);
+
+  /* Text */
+  --t1: #eaf2ff;
+  --t2: #8fafc8;
+  --t3: #4e6a85;
+
+  /* Accent — Coach tab */
+  --green:  #3dffa0;
+  --green2: rgba(61,255,160,0.12);
+  --green3: rgba(61,255,160,0.06);
+
+  /* Accent — NLZ tab */
+  --amber:  #ffbe3d;
+  --amber2: rgba(255,190,61,0.12);
+  --amber3: rgba(255,190,61,0.06);
+
+  /* Data colours */
+  --dg: #34d399;  /* good  */
+  --db: #60a5fa;  /* info  */
+  --da: #fbbf24;  /* warn  */
+  --dr: #f87171;  /* crit  */
+  --dv: #a78bfa;  /* violet */
+  --dc: #22d3ee;  /* cyan  */
+  --ds: #6b7280;  /* slate */
+
+  /* Fonts */
+  --f1: 'Outfit', sans-serif;
+  --f2: 'Libre Baskerville', serif;
+  --fm: 'Fira Code', monospace;
+
+  --rad: 10px;
+  --rad-s: 6px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg0);
+  background-image:
+    radial-gradient(ellipse 80% 40% at 50% -10%, rgba(61,255,160,0.04) 0%, transparent 60%),
+    linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
+  background-size: 100% 100%, 48px 48px, 48px 48px;
+  color: var(--t1);
+  font-family: var(--f1);
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+/* ── TOPBAR ─────────────────────────────────────── */
+.topbar {
+  height: 56px;
+  background: rgba(7,12,19,0.95);
+  border-bottom: 1px solid var(--b2);
+  backdrop-filter: blur(24px);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 32px;
+  position: sticky; top: 0; z-index: 100;
+}
+.brand {
+  display: flex; align-items: center; gap: 12px;
+  font-family: var(--f1); font-size: 17px; font-weight: 800;
+  color: var(--t1); letter-spacing: -0.02em;
+}
+.brand-badge {
+  width: 28px; height: 28px;
+  background: var(--active-accent, var(--green));
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 900; color: #07111c;
+  transition: background 0.35s;
+}
+.brand-sep { color: var(--b3); margin: 0 4px; }
+.brand-sub { font-size: 13px; font-weight: 400; color: var(--t3); }
+.topbar-right {
+  font-family: var(--fm); font-size: 11px; color: var(--t3);
+  text-align: right; line-height: 1.8;
+}
+.topbar-right strong { color: var(--active-accent, var(--green)); }
+
+/* ── TABS ────────────────────────────────────────── */
+.tabs {
+  display: flex;
+  background: var(--bg1);
+  border-bottom: 1px solid var(--b2);
+  padding: 0 32px;
+  position: sticky; top: 56px; z-index: 90;
+  backdrop-filter: blur(16px);
+}
+.tab {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 30px; height: 52px;
+  font-family: var(--f1); font-size: 14px; font-weight: 600;
+  color: var(--t3); cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.22s; user-select: none; white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+.tab:hover { color: var(--t2); }
+.tab.t-coach.on { color: var(--green); border-bottom-color: var(--green); }
+.tab.t-nlz.on   { color: var(--amber); border-bottom-color: var(--amber); }
+.tab-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: currentColor; opacity: 0; transition: opacity 0.2s;
+}
+.tab.on .tab-dot { opacity: 1; }
+
+/* ── PAGE ────────────────────────────────────────── */
+.page { display: none; }
+.page.on { display: block; animation: rise 0.3s cubic-bezier(.16,1,.3,1); }
+@keyframes rise { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
+/* ── HERO ────────────────────────────────────────── */
+.hero {
+  padding: 28px 32px 24px;
+  border-bottom: 1px solid var(--b1);
+  display: flex; align-items: flex-end; gap: 28px; flex-wrap: wrap;
+}
+.hero-text { flex: 1; min-width: 260px; }
+.hero-eyebrow {
+  font-family: var(--fm); font-size: 11px; font-weight: 600;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--hero-accent); margin-bottom: 8px;
+}
+.hero-title {
+  font-family: var(--f2); font-size: 30px; line-height: 1.15;
+  color: var(--t1); font-weight: 700;
+}
+.hero-title em { font-style: italic; color: var(--hero-accent); }
+.hero-sub { font-size: 13px; color: var(--t3); margin-top: 6px; font-family: var(--fm); }
+
+/* Hero stat pills */
+.hero-stats { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+.hstat {
+  background: var(--bg2); border: 1px solid var(--b2);
+  border-radius: var(--rad-s); padding: 10px 18px; text-align: center;
+  min-width: 80px;
+}
+.hstat-val {
+  font-family: var(--f1); font-size: 28px; font-weight: 800;
+  color: var(--hero-accent); line-height: 1;
+}
+.hstat-lbl {
+  font-family: var(--fm); font-size: 10px; color: var(--t3);
+  letter-spacing: 0.08em; text-transform: uppercase; margin-top: 4px;
+}
+
+/* ── LAYOUT ──────────────────────────────────────── */
+.body {
+  display: flex; flex-direction: column; gap: 18px;
+  padding: 24px 32px;
+  max-width: 1100px; margin: 0 auto;
+}
+.col   { display: contents; }
+.col-l { display: contents; }
+.col-r { display: contents; }
+
+/* ── SECTION LABEL ───────────────────────────────── */
+.sl {
+  font-family: var(--fm); font-size: 10px; font-weight: 600;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--t3);
+  display: flex; align-items: center; gap: 10px;
+}
+.sl::after { content: ''; flex: 1; height: 1px; background: var(--b2); }
+
+/* ── CARD ────────────────────────────────────────── */
+.card {
+  background: var(--bg2); border: 1px solid var(--b2);
+  border-radius: var(--rad); padding: 18px 20px;
+  position: relative; overflow: hidden;
+}
+.card-top-line {
+  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, var(--hero-accent), transparent 60%);
+  opacity: 0.5;
+}
+.ch { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.ct { font-family: var(--f1); font-size: 14px; font-weight: 600; color: var(--t2); }
+.ctag {
+  font-family: var(--fm); font-size: 10px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 2px 9px; border-radius: 4px;
+}
+
+/* ── KPI GRID ────────────────────────────────────── */
+.kg { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap: 12px; }
+.kc {
+  background: var(--bg2); border: 1px solid var(--b2);
+  border-radius: var(--rad); padding: 20px 22px;
+  position: relative; overflow: hidden;
+  transition: border-color 0.2s;
+}
+.kc:hover { border-color: var(--b3); }
+.kc::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--kcolor, var(--hero-accent));
+}
+.kl { font-family: var(--fm); font-size: 10px; color: var(--t3); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 10px; }
+.kv { font-family: var(--f1); font-size: 36px; font-weight: 800; color: var(--kcolor, var(--hero-accent)); line-height: 1; }
+.ks { font-size: 12px; color: var(--t3); margin-top: 6px; }
+.kd { font-family: var(--fm); font-size: 11px; margin-top: 5px; }
+
+/* ── BPI HERO RING ───────────────────────────────── */
+.ring-wrap {
+  display: flex; align-items: center; gap: 20px;
+  background: linear-gradient(135deg, var(--bg3), var(--bg2));
+  border: 1px solid var(--b2); border-radius: var(--rad); padding: 18px 22px;
+}
+.ring { position: relative; width: 96px; height: 96px; flex-shrink: 0; }
+.ring svg { transform: rotate(-90deg); }
+.ring-inner {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.ring-val { font-family: var(--f1); font-size: 28px; font-weight: 800; line-height: 1; }
+.ring-lbl { font-family: var(--fm); font-size: 9px; color: var(--t3); margin-top: 2px; letter-spacing: 0.06em; }
+.ring-info { flex: 1; }
+.ring-name { font-family: var(--f1); font-size: 16px; font-weight: 700; color: var(--t1); margin-bottom: 8px; }
+.pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.pill {
+  font-family: var(--fm); font-size: 11px;
+  padding: 3px 9px; border-radius: 4px;
+  background: var(--bg4); border: 1px solid var(--b2); color: var(--t2);
+}
+.pill strong { color: var(--t1); }
+
+/* ── TABLE ───────────────────────────────────────── */
+.tbl { width: 100%; border-collapse: collapse; }
+.tbl th {
+  font-family: var(--fm); font-size: 10px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--t3);
+  padding: 9px 11px; text-align: left;
+  border-bottom: 1px solid var(--b3);
+  background: var(--bg3); position: sticky; top: 0;
+}
+.tbl td { padding: 10px 11px; border-bottom: 1px solid var(--b1); vertical-align: middle; font-size: 13px; }
+.tbl tr:hover td { background: rgba(255,255,255,0.02); }
+.tbl tr:last-child td { border-bottom: none; }
+.scr { overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--bg4) transparent; }
+
+/* ── BADGE ───────────────────────────────────────── */
+.badge {
+  display: inline-block; font-family: var(--fm); font-size: 10px; font-weight: 600;
+  letter-spacing: 0.07em; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 4px;
+}
+.bg  { background: rgba(52,211,153,0.10); color: var(--dg); border: 1px solid rgba(52,211,153,0.2); }
+.bb  { background: rgba(96,165,250,0.10); color: var(--db); border: 1px solid rgba(96,165,250,0.2); }
+.ba  { background: rgba(251,191,36,0.10); color: var(--da); border: 1px solid rgba(251,191,36,0.2); }
+.br  { background: rgba(248,113,113,0.10); color: var(--dr); border: 1px solid rgba(248,113,113,0.2); }
+.bv  { background: rgba(167,139,250,0.10); color: var(--dv); border: 1px solid rgba(167,139,250,0.2); }
+.bc  { background: rgba(34,211,238,0.10);  color: var(--dc); border: 1px solid rgba(34,211,238,0.2); }
+.b-ac{ background: rgba(61,255,160,0.10);  color: var(--green); border: 1px solid rgba(61,255,160,0.2); }
+.b-am{ background: rgba(255,190,61,0.10);  color: var(--amber); border: 1px solid rgba(255,190,61,0.2); }
+
+/* ── TREND ───────────────────────────────────────── */
+.up   { color: var(--dg); font-family: var(--fm); font-size: 12px; }
+.dn   { color: var(--dr); font-family: var(--fm); font-size: 12px; }
+.flat { color: var(--t3); font-family: var(--fm); font-size: 12px; }
+
+/* ── ALERT ───────────────────────────────────────── */
+.alert {
+  border-radius: var(--rad-s); padding: 12px 15px;
+  display: flex; gap: 11px; align-items: flex-start;
+  border-left: 2px solid;
+}
+.al-g { background: rgba(52,211,153,0.05);  border-color: var(--dg); }
+.al-a { background: rgba(251,191,36,0.05);  border-color: var(--da); }
+.al-r { background: rgba(248,113,113,0.05); border-color: var(--dr); }
+.al-b { background: rgba(96,165,250,0.05);  border-color: var(--db); }
+.al-v { background: rgba(167,139,250,0.05); border-color: var(--dv); }
+.al-ac{ background: rgba(61,255,160,0.05);  border-color: var(--green); }
+.al-am{ background: rgba(255,190,61,0.05);  border-color: var(--amber); }
+.aico { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+.abody { color: var(--t2); font-size: 13px; line-height: 1.6; }
+.abody strong { color: var(--t1); }
+
+/* ── CHART ───────────────────────────────────────── */
+.cw { position: relative; }
+.h170{height:170px;} .h190{height:190px;} .h210{height:210px;}
+.h230{height:230px;} .h260{height:260px;} .h300{height:300px;}
+
+/* ── DIST BARS ───────────────────────────────────── */
+.dist { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--b1); }
+.dist:last-child { border-bottom: none; }
+.dl { font-size: 13px; color: var(--t2); width: 130px; white-space: nowrap; }
+.dt { flex: 1; height: 6px; background: var(--bg4); border-radius: 3px; overflow: hidden; }
+.df { height: 100%; border-radius: 3px; }
+.dv { font-family: var(--fm); font-size: 12px; color: var(--t3); width: 56px; text-align: right; }
+
+/* ── TALENT ROW ──────────────────────────────────── */
+.talent {
+  display: flex; align-items: center; gap: 13px;
+  padding: 11px 0; border-bottom: 1px solid var(--b1);
+}
+.talent:last-child { border-bottom: none; }
+.tav {
+  width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--f1); font-size: 13px; font-weight: 700;
+}
+.tname { font-family: var(--f1); font-size: 14px; font-weight: 700; color: var(--t1); }
+.tmeta { font-family: var(--fm); font-size: 11px; color: var(--t3); margin-top: 2px; }
+.tbpi  { font-family: var(--f1); font-size: 24px; font-weight: 800; min-width: 42px; text-align: right; }
+
+/* ── TEAM OVERVIEW CARD ──────────────────────────── */
+.tov {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.tov-item {
+  background: var(--bg3); border: 1px solid var(--b2);
+  border-radius: var(--rad-s); padding: 13px 15px;
+  position: relative; overflow: hidden;
+  display: flex;
+}
+.tov-item::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+  background: var(--tc, var(--hero-accent));
+}
+.tov-name { font-family: var(--f1); font-size: 13px; font-weight: 700; color: var(--t1); margin-bottom: 9px; padding-left: 9px; }
+.tov-stats { display: flex; gap: 14px; padding-left: 9px; flex-wrap: wrap; }
+.tov-v { font-family: var(--f1); font-size: 22px; font-weight: 800; }
+.tov-l { font-family: var(--fm); font-size: 9px; color: var(--t3); letter-spacing: 0.08em; text-transform: uppercase; margin-top: 2px; }
+.hero-right { display: flex; gap: 10px;}
+
+/* ── TRAINER ROW ─────────────────────────────────── */
+.trow {
+  display: flex; align-items: center; gap: 13px;
+  padding: 11px 0; border-bottom: 1px solid var(--b1);
+}
+.trow:last-child { border-bottom: none; }
+.tav-c {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--bg4); border: 1px solid var(--b2);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--fm); font-size: 11px; font-weight: 600; color: var(--t2);
+  flex-shrink: 0;
+}
+.trow-name { font-family: var(--f1); font-size: 14px; font-weight: 600; color: var(--t1); }
+.trow-sub  { font-family: var(--fm); font-size: 11px; color: var(--t3); }
+.trow-bar  { flex: 1; height: 5px; background: var(--bg4); border-radius: 3px; overflow: hidden; }
+.trow-fill { height: 100%; border-radius: 3px; }
+.trow-bpi  { font-family: var(--f1); font-size: 20px; font-weight: 800; min-width: 36px; text-align: right; }
+
+/* ── INSIGHT ─────────────────────────────────────── */
+.insight {
+  display: flex; gap: 12px; align-items: flex-start;
+  background: var(--bg3); border: 1px solid var(--b2);
+  border-radius: var(--rad-s); padding: 12px 14px;
+}
+.iico { font-size: 17px; flex-shrink: 0; }
+.ititle { font-family: var(--f1); font-size: 13px; font-weight: 700; color: var(--t1); margin-bottom: 3px; }
+.itext  { font-size: 13px; color: var(--t2); line-height: 1.6; }
+
+/* ── GAP ─────────────────────────────────────────── */
+.gap4 { height: 4px; } .gap8 { height: 8px; }
+
+/* ── PRESIDENT TAB COLOR ─────────────────────────── */
+.t-pres { --ra: #e879f9; }
+.t-pres.on { color: #e879f9; border-bottom-color: #e879f9; }
+
+/* ── BPI RANKING WIDGET ──────────────────────────── */
+.rank-widget {
+  background: var(--bg2); border: 1px solid var(--b2);
+  border-radius: var(--rad); overflow: hidden;
+}
+.rank-widget-head {
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--b2);
+}
+.rank-widget-title {
+  font-family: var(--f1); font-size: 14px; font-weight: 700; color: var(--t1);
+  margin-bottom: 12px; display: flex; align-items: center; gap: 10px;
+}
+.rank-scale {
+  display: flex; justify-content: space-between;
+  font-family: var(--fm); font-size: 9px; color: var(--t3);
+  margin-bottom: 4px; padding: 0 4px;
+}
+.rank-scale-bar {
+  height: 3px; border-radius: 2px;
+  background: linear-gradient(90deg, var(--dr), var(--da), var(--dg));
+  margin-bottom: 10px;
+}
+
+/* Filter bar */
+.rank-filters {
+  display: flex; gap: 6px; flex-wrap: wrap; padding: 12px 20px;
+  border-bottom: 1px solid var(--b2);
+  background: var(--bg3);
+}
+.rf-group { display: flex; gap: 4px; align-items: center; }
+.rf-label {
+  font-family: var(--fm); font-size: 9px; color: var(--t3);
+  letter-spacing: 0.1em; text-transform: uppercase; margin-right: 2px; white-space: nowrap;
+}
+.rf-btn {
+  font-family: var(--fm); font-size: 10px; font-weight: 600;
+  padding: 4px 11px; border-radius: 14px; cursor: pointer;
+  background: var(--bg4); border: 1px solid var(--b2); color: var(--t3);
+  transition: all 0.15s; user-select: none; white-space: nowrap;
+}
+.rf-btn:hover { color: var(--t2); border-color: var(--b3); }
+.rf-btn.on { background: var(--filter-color, rgba(61,255,160,0.12)); color: var(--filter-color-text, var(--green)); border-color: var(--filter-color-border, rgba(61,255,160,0.3)); }
+.rf-sep { width: 1px; height: 20px; background: var(--b2); margin: 0 4px; }
+
+/* Rank rows */
+.rank-list { padding: 8px 0; }
+.rank-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 10px 20px; border-bottom: 1px solid var(--b1);
+  cursor: pointer; transition: background 0.15s;
+}
+.rank-row:last-child { border-bottom: none; }
+.rank-row:hover { background: rgba(255,255,255,0.025); }
+.rank-row.hidden { display: none; }
+
+/* position number */
+.rank-pos {
+  font-family: var(--fm); font-size: 13px; font-weight: 700;
+  width: 28px; text-align: center; flex-shrink: 0;
+}
+/* avatar */
+.rank-avatar {
+  width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--f1); font-size: 13px; font-weight: 700;
+  border: 2px solid transparent; position: relative;
+}
+/* info */
+.rank-info { flex: 1; min-width: 0; }
+.rank-name { font-family: var(--f1); font-size: 13px; font-weight: 700; color: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rank-sub  { font-family: var(--fm); font-size: 10px; color: var(--t3); margin-top: 1px; }
+
+/* bar track */
+.rank-bar-area { flex: 2; position: relative; }
+.rank-bar-track { height: 8px; background: var(--bg4); border-radius: 4px; overflow: visible; position: relative; }
+.rank-bar-fill  { height: 100%; border-radius: 4px; transition: width 0.6s cubic-bezier(.16,1,.3,1); position: relative; }
+.rank-bar-fill::after {
+  content: ''; position: absolute; right: -1px; top: -3px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: inherit; border: 2px solid var(--bg2);
+}
+
+/* BPI value */
+.rank-bpi {
+  font-family: var(--f1); font-size: 20px; font-weight: 800;
+  min-width: 52px; text-align: right; flex-shrink: 0;
+}
+.rank-trend { font-family: var(--fm); font-size: 11px; min-width: 44px; text-align: right; flex-shrink: 0; }
+
+/* ── PRESIDENT KPI TILES ─────────────────────────── */
+.pres-kpi-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+.pres-kpi {
+  background: var(--bg3); border: 1px solid var(--b2);
+  border-radius: var(--rad-s); padding: 14px 16px; position: relative; overflow: hidden;
+}
+.pres-kpi::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:var(--pk,#e879f9); }
+.pres-kpi-val { font-family: var(--f1); font-size: 28px; font-weight: 800; color: var(--pk,#e879f9); line-height:1; }
+.pres-kpi-lbl { font-family: var(--fm); font-size: 10px; color: var(--t3); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px; }
+.pres-kpi-sub { font-size:12px; color:var(--t3); margin-top:4px; }
+.pres-kpi-delta { font-family:var(--fm); font-size:11px; margin-top:4px; }
+
+/* ── FULLSCREEN OVERLAY ──────────────────────────── */
+.fs-overlay {
+  display: none;
+  pointer-events: none;
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(4,8,14,0.92);
+  backdrop-filter: blur(12px);
+  align-items: center; justify-content: center;
+}
+.fs-overlay.open { display: flex; pointer-events: all; animation: fsIn 0.25s ease; }
+@keyframes fsIn { from { opacity:0; } to { opacity:1; } }
+.fs-box {
+  background: var(--bg1);
+  border: 1px solid var(--b3);
+  border-radius: 14px;
+  width: min(94vw, 1100px);
+  max-height: 90vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg4) transparent;
+  box-shadow: 0 40px 80px rgba(0,0,0,0.6);
+  animation: fsRise 0.28s cubic-bezier(.16,1,.3,1);
+}
+@keyframes fsRise { from { transform:scale(0.96) translateY(12px); opacity:0; } to { transform:scale(1) translateY(0); opacity:1; } }
+.fs-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 24px 16px;
+  border-bottom: 1px solid var(--b2);
+  position: sticky; top: 0; background: var(--bg1); z-index: 2;
+  border-radius: 14px 14px 0 0;
+}
+.fs-title { font-family: var(--f1); font-size: 15px; font-weight: 700; color: var(--t1); }
+.fs-sub   { font-family: var(--fm); font-size: 11px; color: var(--t3); margin-top: 2px; }
+.fs-close {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: var(--bg3); border: 1px solid var(--b2);
+  color: var(--t2); font-size: 18px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.fs-close:hover { background: var(--bg4); color: var(--t1); }
+.fs-body { padding: 22px 24px; }
+.fs-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.fs-grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+
+/* fullscreen-able card wrapper */
+.fcw { position: relative; }
+.fs-btn {
+  position: absolute; top: 12px; right: 12px; z-index: 10;
+  width: 28px; height: 28px; border-radius: 5px;
+  background: var(--bg4); border: 1px solid var(--b2);
+  color: var(--t3); font-size: 13px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity 0.2s;
+}
+.fcw:hover .fs-btn { opacity: 1; }
+.fs-btn:hover { color: var(--t1); background: var(--bg3); }
+
+/* ── PLAYER DRILLDOWN MODAL ──────────────────────── */
+.dd-kpis { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 18px; }
+.dd-kpi {
+  background: var(--bg2); border: 1px solid var(--b2);
+  border-radius: var(--rad-s); padding: 12px 14px; text-align: center;
+}
+.dd-kpi-val { font-family: var(--f1); font-size: 26px; font-weight: 800; line-height: 1; }
+.dd-kpi-lbl { font-family: var(--fm); font-size: 10px; color: var(--t3); margin-top: 4px; letter-spacing: 0.08em; text-transform: uppercase; }
+
+/* ── AGE FILTER ──────────────────────────────────── */
+.age-filter {
+  display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px;
+}
+.af-btn {
+  font-family: var(--fm); font-size: 11px; font-weight: 600;
+  padding: 5px 14px; border-radius: 20px; cursor: pointer;
+  background: var(--bg3); border: 1px solid var(--b2); color: var(--t3);
+  transition: all 0.18s; user-select: none;
+}
+.af-btn:hover { color: var(--t2); border-color: var(--b3); }
+.af-btn.active { color: var(--bg0); background: var(--amber); border-color: var(--amber); }
+
+/* ── FORECAST BAND ───────────────────────────────── */
+.forecast-legend {
+  display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px;
+}
+.fc-item {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--fm); font-size: 11px; color: var(--t2);
+}
+.fc-dot { width: 10px; height: 3px; border-radius: 2px; }
+
+/* ── BPI BAR CHART WIDGET ────────────────────────── */
+.bpi-chart-widget {
+  background: var(--bg2); border: 1px solid var(--b2);
+  border-radius: var(--rad); overflow: hidden;
+}
+.bcw-head {
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid var(--b2);
+  background: var(--bg3);
+}
+.bcw-title {
+  font-family: var(--f1); font-size: 13px; font-weight: 700; color: var(--t1);
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+}
+.bcw-filters {
+  display: flex; gap: 5px; flex-wrap: wrap; align-items: center;
+}
+.bcw-filter {
+  font-family: var(--fm); font-size: 10px; font-weight: 600;
+  padding: 3px 10px; border-radius: 12px; cursor: pointer;
+  background: var(--bg4); border: 1px solid var(--b2); color: var(--t3);
+  transition: all 0.15s; user-select: none; white-space: nowrap;
+}
+.bcw-filter:hover { color: var(--t2); border-color: var(--b3); }
+.bcw-filter.on { background: var(--fc-bg, rgba(61,255,160,0.12)); color: var(--fc-col, var(--green)); border-color: var(--fc-bd, rgba(61,255,160,0.3)); }
+.bcw-sep { width:1px; height:16px; background:var(--b2); margin: 0 2px; flex-shrink:0; }
+
+/* ── FILTER BUTTON ───────────────────────────────── */
+.bcw-open-btn {
+  margin-left: auto;
+  font-family: var(--fm); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 5px 14px; border-radius: 20px; cursor: pointer;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--b3);
+  color: var(--btn-col, var(--green));
+  display: flex; align-items: center; gap: 6px;
+  transition: all 0.15s;
+}
+.bcw-open-btn:hover { background: rgba(255,255,255,0.08); }
+.bcw-open-btn.open { background: rgba(255,255,255,0.08); border-color: var(--btn-col,var(--green)); }
+.bcw-active-count {
+  background: var(--btn-col, var(--green)); color: var(--bg0);
+  border-radius: 10px; font-size: 9px; font-weight: 800;
+  padding: 1px 6px; min-width: 16px; text-align: center;
+  display: none;
+}
+.bcw-active-count.visible { display: inline-block; }
+
+/* ── FILTER PANEL (dropdown) ─────────────────────── */
+.bcw-panel {
+  display: none;
+  flex-direction: column; gap: 14px;
+  margin-top: 12px; padding: 14px 16px;
+  background: var(--bg4); border: 1px solid var(--b3);
+  border-radius: var(--rad-s);
+  animation: panelIn 0.2s cubic-bezier(.16,1,.3,1);
+}
+.bcw-panel.open { display: flex; }
+@keyframes panelIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+
+.bcw-group { display: flex; flex-direction: column; gap: 6px; }
+.bcw-group-label {
+  font-family: var(--fm); font-size: 9px; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--t3);
+}
+.bcw-chips { display: flex; gap: 5px; flex-wrap: wrap; }
+.bcw-chip {
+  font-family: var(--fm); font-size: 10px; font-weight: 600;
+  padding: 4px 12px; border-radius: 14px; cursor: pointer;
+  background: var(--bg2); border: 1px solid var(--b2); color: var(--t3);
+  transition: all 0.15s; user-select: none; white-space: nowrap;
+}
+.bcw-chip:hover { color: var(--t2); border-color: var(--b3); }
+.bcw-chip.on {
+  background: color-mix(in srgb, var(--cc, var(--green)) 15%, transparent);
+  color: var(--cc, var(--green));
+  border-color: color-mix(in srgb, var(--cc, var(--green)) 40%, transparent);
+}
+.bcw-reset {
+  font-family: var(--fm); font-size: 10px; color: var(--t3);
+  background: none; border: none; cursor: pointer; padding: 2px 0;
+  text-decoration: underline; text-underline-offset: 3px;
+  align-self: flex-start; transition: color 0.15s;
+}
+.bcw-reset:hover { color: var(--t2); }
+
+/* ── CHART BODY — sketch layout ─────────────────── */
+/* X-axis header (top, with arrow) */
+.bcw-xaxis-top {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 16px 4px calc(var(--bcw-label-w, 80px) + 16px);
+  font-family: var(--fm); font-size: 9px; color: var(--t3);
+  border-bottom: 1px solid var(--b1);
+  position: relative;
+}
+.bcw-xaxis-top::after {
+  content: '→';
+  position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
+  font-size: 13px; color: var(--t3);
+}
+.bcw-xaxis-arrow {
+  position: absolute; top: 6px; right: 14px;
+  font-size: 14px; color: var(--t3);
+}
+
+/* Each row: [name label] | [bar track ——●] name+val */
+.bcw-body { padding: 4px 0; }
+
+.bcw-row {
+  display: flex; align-items: center;
+  padding: 5px 16px;
+  cursor: pointer; transition: background 0.12s;
+  gap: 0;
+}
+.bcw-row:hover { background: rgba(255,255,255,0.025); }
+.bcw-row.hidden { display: none; }
+
+/* Y-axis label (player name on left) */
+.bcw-ylabel {
+  width: var(--bcw-label-w, 80px);
+  flex-shrink: 0;
+  font-family: var(--f1); font-size: 11px; font-weight: 600; color: var(--t2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  padding-right: 10px; text-align: right;
+}
+
+/* Vertical axis line */
+.bcw-axis-line {
+  width: 1px; height: 28px; background: var(--b3);
+  flex-shrink: 0; align-self: stretch; margin-right: 0;
+}
+
+/* Bar track — fills remaining space */
+.bcw-track {
+  flex: 1; position: relative; height: 28px;
+  display: flex; align-items: center;
+}
+
+/* Horizontal bar */
+.bcw-bar {
+  height: 6px; border-radius: 0 3px 3px 0;
+  transition: width 0.75s cubic-bezier(.16,1,.3,1);
+  min-width: 3px; flex-shrink: 0;
+}
+
+/* Avatar circle — sits at end of bar, vertically centred */
+.bcw-avatar {
+  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--f1); font-size: 10px; font-weight: 700;
+  border: 2px solid var(--bg2);
+  margin-left: -3px; /* overlaps end of bar slightly */
+  position: relative; z-index: 2;
+  transition: transform 0.15s;
+}
+.bcw-row:hover .bcw-avatar { transform: scale(1.15); }
+
+/* Name + BPI label to the right of avatar */
+.bcw-endlabel {
+  margin-left: 6px; white-space: nowrap; flex-shrink: 0;
+  display: flex; flex-direction: column; line-height: 1.2;
+}
+.bcw-endname { font-family: var(--f1); font-size: 11px; font-weight: 600; color: var(--t1); }
+.bcw-endval  { font-family: var(--fm); font-size: 11px; font-weight: 700; }
+
+/* Empty state */
+.bcw-empty {
+  text-align: center; padding: 20px;
+  font-family: var(--fm); font-size: 11px; color: var(--t3);
+}
+
+/* ── CORR (keep) ─────────────────────────────────── */
+.corr-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 0; border-bottom: 1px solid var(--b1);
+}
+.corr-row:last-child { border-bottom: none; }
+.corr-metric { font-size: 13px; color: var(--t2); flex: 1; }
+.corr-bar-wrap { width: 120px; height: 8px; background: var(--bg4); border-radius: 4px; overflow: hidden; }
+.corr-bar { height: 100%; border-radius: 4px; }
+.corr-val { font-family: var(--fm); font-size: 13px; font-weight: 700; width: 40px; text-align: right; }
+.corr-pct { font-family: var(--fm); font-size: 12px; color: var(--t3); width: 48px; text-align: right; }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<header class="topbar" id="topbar">
+  <div class="brand">
+    <div class="brand-badge" id="brand-badge">B1</div>
+    BRAIN1
+    <span class="brand-sep">·</span>
+    <span class="brand-sub">Fussball Performance Dashboard</span>
+  </div>
+  <div class="topbar-right">
+    FC Brain1 · Saison 2025/26<br>
+    <strong id="role-lbl">Coach / Trainer</strong>
+  </div>
+</header>
+
+<!-- TABS -->
+<nav class="tabs">
+  <div class="tab t-coach on" id="tab-coach" onclick="go('coach')">
+    <span class="tab-dot"></span>
+    ⚽ Coach / Trainer
+  </div>
+  <div class="tab t-nlz" id="tab-nlz" onclick="go('nlz')">
+    <span class="tab-dot"></span>
+    🏟 Jugendleiter / NLZ-Leiter
+  </div>
+  <div class="tab t-pres" id="tab-pres" onclick="go('pres')">
+    <span class="tab-dot"></span>
+    👑 Vereinspräsident
+  </div>
+</nav>
+
+
+<!-- FULLSCREEN OVERLAY (generic chart zoom) -->
+<div class="fs-overlay" id="fs-overlay" onclick="closeFsIfBg(event)">
+  <div class="fs-box" id="fs-box">
+    <div class="fs-head">
+      <div><div class="fs-title" id="fs-title"></div><div class="fs-sub" id="fs-sub"></div></div>
+      <div class="fs-close" onclick="closeFs()">✕</div>
+    </div>
+    <div class="fs-body" id="fs-body"></div>
+  </div>
+</div>
+
+<!-- PLAYER DRILLDOWN MODAL -->
+<div class="fs-overlay" id="dd-overlay" onclick="closeDdIfBg(event)">
+  <div class="fs-box" id="dd-box" style="max-width:900px">
+    <div class="fs-head">
+      <div>
+        <div class="fs-title" id="dd-name">Spieler-Detail</div>
+        <div class="fs-sub" id="dd-meta"></div>
+      </div>
+      <div class="fs-close" onclick="closeDd()">✕</div>
+    </div>
+    <div class="fs-body">
+      <!-- KPIs -->
+      <div class="dd-kpis" id="dd-kpis"></div>
+      <!-- Charts row -->
+      <div class="fs-grid2" style="margin-bottom:18px">
+        <div class="card" style="padding:14px 16px">
+          <div class="ch"><div class="ct">BPI-Verlauf & Prognose</div><span class="ctag b-ac" style="font-size:9px">INDIVIDUELL</span></div>
+          <div class="cw" style="height:180px"><canvas id="dd-chart-trend"></canvas></div>
+          <div class="forecast-legend">
+            <div class="fc-item"><div class="fc-dot" style="background:var(--green)"></div>Tatsächlich</div>
+            <div class="fc-item"><div class="fc-dot" style="background:var(--green);opacity:0.4;border-top:1px dashed var(--green)"></div>Prognose +4 Wo.</div>
+          </div>
+        </div>
+        <div class="card" style="padding:14px 16px">
+          <div class="ch"><div class="ct">Kognitives Profil</div></div>
+          <div class="cw" style="height:180px"><canvas id="dd-chart-radar"></canvas></div>
+        </div>
+      </div>
+      <!-- Correlation -->
+      <div class="card" style="padding:14px 18px">
+        <div class="ch"><div class="ct">BPI ↔ Spielergebnis Korrelation</div><span class="ctag" style="background:rgba(251,191,36,0.1);color:var(--da);border:1px solid rgba(251,191,36,0.2);font-size:9px">SAISON 25/26</span></div>
+        <div id="dd-corr"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="page on" id="page-coach" style="--hero-accent:var(--green)">
+
+  <div class="hero">
+    <div class="hero-text">
+      <div class="hero-eyebrow">⚽ Coach / Trainer · Erste Mannschaft</div>
+      <div class="hero-title">Thomas Bauer — <em>Cheftrainer</em></div>
+      <div class="hero-sub">FC Brain1 · 18 Spieler · Bundesliga · Saison 2025/26</div>
+    </div>
+    <div class="hero-stats">
+      <div class="hstat"><div class="hstat-val">74</div><div class="hstat-lbl">Ø BPI Team</div></div>
+      <div class="hstat"><div class="hstat-val">18</div><div class="hstat-lbl">Spieler</div></div>
+      <div class="hstat"><div class="hstat-val" style="color:var(--dr)">3</div><div class="hstat-lbl">Krit. Fälle</div></div>
+      <div class="hstat"><div class="hstat-val" style="color:var(--da)">312</div><div class="hstat-lbl">Sessions/Wo</div></div>
+    </div>
+  </div>
+
+  <div class="body">
+
+      <!-- 1. BPI RANGLISTE -->
+<div class="bpi-chart-widget" id="bcw-coach">
+        <div class="bcw-head">
+          <div class="bcw-title">
+            ⬡ BPI Rangliste — Mein Team
+            <button class="bcw-open-btn" onclick="openBcwPanel('coach',this)">
+              ⚙ Filter <span class="bcw-active-count" id="bcw-coach-count"></span>
+            </button>
+          </div>
+          <!-- FILTER PANEL -->
+          <div class="bcw-panel" id="bcw-panel-coach">
+            <div class="bcw-group">
+              <div class="bcw-group-label">Anzeigen</div>
+              <div class="bcw-chips">
+                <div class="bcw-chip on" data-tab="coach" data-type="count" data-val="all" onclick="bcwChip(this)">Alle 18</div>
+                <div class="bcw-chip" data-tab="coach" data-type="count" data-val="top5" onclick="bcwChip(this)">Top 5</div>
+                <div class="bcw-chip" data-tab="coach" data-type="count" data-val="top10" onclick="bcwChip(this)">Top 10</div>
+              </div>
+            </div>
+            <div class="bcw-group">
+              <div class="bcw-group-label">Position</div>
+              <div class="bcw-chips">
+                <div class="bcw-chip on" data-tab="coach" data-type="pos" data-val="all" onclick="bcwChip(this)">Alle</div>
+                <div class="bcw-chip" data-tab="coach" data-type="pos" data-val="ST" onclick="bcwChip(this)">Stürmer</div>
+                <div class="bcw-chip" data-tab="coach" data-type="pos" data-val="MF" onclick="bcwChip(this)">Mittelfeld</div>
+                <div class="bcw-chip" data-tab="coach" data-type="pos" data-val="IV" onclick="bcwChip(this)">Innenverteidiger</div>
+                <div class="bcw-chip" data-tab="coach" data-type="pos" data-val="TW" onclick="bcwChip(this)">Torwart</div>
+              </div>
+            </div>
+            <div class="bcw-group">
+              <div class="bcw-group-label">BPI-Level</div>
+              <div class="bcw-chips">
+                <div class="bcw-chip on" data-tab="coach" data-type="bpi" data-val="all" onclick="bcwChip(this)">Alle</div>
+                <div class="bcw-chip" data-tab="coach" data-type="bpi" data-val="elite" onclick="bcwChip(this)">Elite &gt; 800</div>
+                <div class="bcw-chip" data-tab="coach" data-type="bpi" data-val="gut" onclick="bcwChip(this)">Gut 600–800</div>
+                <div class="bcw-chip" data-tab="coach" data-type="bpi" data-val="kritisch" onclick="bcwChip(this)">Kritisch &lt; 400</div>
+              </div>
+            </div>
+            <div class="bcw-group">
+              <div class="bcw-group-label">Entwicklung</div>
+              <div class="bcw-chips">
+                <div class="bcw-chip on" data-tab="coach" data-type="trend" data-val="all" onclick="bcwChip(this)">Alle</div>
+                <div class="bcw-chip" data-tab="coach" data-type="trend" data-val="up" onclick="bcwChip(this)">▲ Steigend</div>
+                <div class="bcw-chip" data-tab="coach" data-type="trend" data-val="dn" onclick="bcwChip(this)">▼ Fallend</div>
+              </div>
+            </div>
+            <button class="bcw-reset" onclick="bcwReset('coach')">Filter zurücksetzen</button>
+          </div>
+        </div>
+        <div class="bcw-xaxis-top"><span>100</span><span>250</span><span>500</span><span>750</span><span>1000 →</span></div>
+        <div class="bcw-body" id="bcw-coach-body"></div>
+      </div>
+
+      <!-- 2. KPIs -->
+<div class="sl">Team-KPIs</div>
+      <div class="kg" style="grid-template-columns:repeat(5,1fr)">
+        <div class="kc" style="--kcolor:var(--green)">
+          <div class="kl">Ø BPI Average</div>
+          <div class="kv">74</div>
+          <div class="ks">Saisonziel: 80</div>
+          <div class="kd up">▲ +5 diese Woche</div>
+        </div>
+        <div class="kc" style="--kcolor:var(--da)">
+          <div class="kl">Max BPI Team</div>
+          <div class="kv">91</div>
+          <div class="ks">M. Torres</div>
+          <div class="kd up">▲ Saison-Best</div>
+        </div>
+        <div class="kc" style="--kcolor:var(--dr)">
+          <div class="kl">Min BPI Team</div>
+          <div class="kv">49</div>
+          <div class="ks">F. Moll</div>
+          <div class="kd dn">▼ stark sinkend</div>
+        </div>
+        <div class="kc" style="--kcolor:var(--db)">
+          <div class="kl">Total Sessions</div>
+          <div class="kv">312</div>
+          <div class="ks">Ziel: 360 / Wo</div>
+          <div class="kd" style="color:var(--da)">⚠ 87% Ziel</div>
+        </div>
+        <div class="kc" style="--kcolor:var(--dv)">
+          <div class="kl">Ø Average Score</div>
+          <div class="kv">77K</div>
+          <div class="ks">Alle Sessions</div>
+          <div class="kd up">▲ +9%</div>
+        </div>
+      </div>
+
+      <!-- BPI TREND + PROGNOSE -->
+
+      <!-- 3. SPIELENTWICKLUNG + PROGNOSE -->
+
+
+      <!-- 4. KOGNITIVES PROFIL + SPIELER HIGHLIGHT -->
+<div class="sl">Spieler-Detail — Platz #1</div>
+      <div class="ring-wrap">
+        <div class="ring">
+          <svg width="96" height="96" viewBox="0 0 96 96">
+            <circle cx="48" cy="48" r="40" fill="none" stroke="rgba(61,255,160,0.12)" stroke-width="9"/>
+            <circle cx="48" cy="48" r="40" fill="none" stroke="var(--green)" stroke-width="9"
+              stroke-dasharray="251" stroke-dashoffset="23" stroke-linecap="round"/>
+          </svg>
+          <div class="ring-inner">
+            <div class="ring-val" style="color:var(--green)">91</div>
+            <div class="ring-lbl">BPI AVG</div>
+          </div>
+        </div>
+        <div class="ring-info">
+          <div class="ring-name">Marco Torres · Sturm · #9</div>
+          <div class="pills">
+            <div class="pill">Max: <strong>97</strong></div>
+            <div class="pill">Min: <strong>78</strong></div>
+            <div class="pill">Sessions: <strong>28</strong></div>
+            <div class="pill">Score: <strong style="color:var(--green)">94K</strong></div>
+            <div class="pill">Streak: <strong>🔥 28d</strong></div>
+            <div class="pill">Team-Rang: <strong style="color:var(--green)">#1</strong></div>
+            <div class="pill">Weltrang: <strong style="color:var(--da)">#312</strong></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- KOGNITIVES PROFIL -->
+      <div class="fcw">
+        <div class="card">
+          <div class="card-top-line"></div>
+          <div class="ch">
+            <div class="ct">Kognitives Profil — Torres vs. Team-Ø</div>
+            <span class="ctag b-ac">RADAR</span>
+          </div>
+          <div class="cw h230"><canvas id="c_c_radar"></canvas></div>
+        </div>
+        <button class="fs-btn" title="Vollbild" onclick="openFs('Kognitives Profil — Torres vs. Team-Ø','Radar-Analyse · 6 kognitive Bereiche','radar-coach')">⛶</button>
+      </div>
+
+      <!-- WELTRANGLISTE TOP 5 -->
+
+      <!-- 5. BPI ↔ SPIELERGEBNIS -->
+<div class="sl">Spielentwicklung & Prognose</div>
+      <div class="fcw">
+        <div class="card">
+          <div class="card-top-line"></div>
+          <div class="ch">
+            <div class="ct">BPI Average — Saison + 4-Wochen-Prognose</div>
+            <span class="ctag b-ac">2025/26</span>
+          </div>
+          <div class="cw h190"><canvas id="c_c_trend"></canvas></div>
+          <div class="forecast-legend" style="margin-top:10px">
+            <div class="fc-item"><div class="fc-dot" style="background:var(--green)"></div>Tatsächlich (Saison)</div>
+            <div class="fc-item"><div class="fc-dot" style="background:var(--green);opacity:0.5"></div>Prognose +4 Wochen</div>
+            <div class="fc-item"><div class="fc-dot" style="background:var(--da);opacity:0.7"></div>Saisonziel 80</div>
+          </div>
+        </div>
+        <button class="fs-btn" title="Vollbild" onclick="openFs('Spielentwicklung & Prognose — Team BPI','Saison 2025/26 · FC Brain1','trend-coach')">⛶</button>
+      </div>
+
+      <!-- KORRELATION BPI ↔ SPIELERGEBNIS -->
+      <div class="sl">BPI ↔ Spielergebnis Korrelation</div>
+      <div class="fcw">
+        <div class="card">
+          <div class="card-top-line"></div>
+          <div class="ch">
+            <div class="ct">Wie BPI die Spielleistung beeinflusst</div>
+            <span class="ctag" style="background:rgba(251,191,36,0.1);color:var(--da);border:1px solid rgba(251,191,36,0.2)">SAISON 25/26</span>
+          </div>
+          <div style="font-size:12px;color:var(--t3);margin-bottom:12px;font-family:var(--fm)">Spieler mit BPI &gt; 75 im Vergleich zu Spielern unter 60 — gemessen über alle Pflichtspiele</div>
+          <div class="corr-row">
+            <div class="corr-metric">⚔️ Zweikampfrate gewonnen</div>
+            <div style="display:flex;align-items:center;gap:8px;flex:1;justify-content:flex-end">
+              <div style="font-family:var(--fm);font-size:11px;color:var(--t3)">BPI &lt;60</div>
+              <div class="corr-bar-wrap"><div class="corr-bar" style="width:42%;background:var(--dr)"></div></div>
+              <div class="corr-val" style="color:var(--dr)">42%</div>
+              <div style="color:var(--t3);font-size:11px">vs</div>
+              <div class="corr-bar-wrap"><div class="corr-bar" style="width:78%;background:var(--dg)"></div></div>
+              <div class="corr-val" style="color:var(--dg)">78%</div>
+              <div style="font-family:var(--fm);font-size:11px;color:var(--t3)">BPI &gt;75</div>
+            </div>
+          </div>
+          <div class="corr-row">
+            <div class="corr-metric">🎯 Pass-Genauigkeit</div>
+            <div style="display:flex;align-items:center;gap:8px;flex:1;justify-content:flex-end">
+              <div style="font-family:var(--fm);font-size:11px;color:var(--t3)">BPI &lt;60</div>
+              <div class="corr-bar-wrap"><div class="corr-bar" style="width:67%;background:var(--dr)"></div></div>
+              <div class="corr-val" style="color:var(--dr)">67%</div>
+              <div style="color:var(--t3);font-size:11px">vs</div>
+              <div class="corr-bar-wrap"><div class="corr-bar" style="width:84%;background:var(--dg)"></div></div>
+              <div class="corr-val" style="color:var(--dg)">84%</div>
+              <div style="font-family:var(--fm);font-size:11px;color:var(--t3)">BPI &gt;75</div>
+            </div>
+          </div>
+          <div class="corr-row">
+            <div class="corr-metric">⚡ Sprintgeschwindigkeit (Top)</div>
+            <div style="display:flex;align-items:center;gap:8px;flex:1;justify-content:flex-end">
+              <div style="font-family:var(--fm);font-size:11px;color:var(--t3)">BPI &lt;60</div>
+              <div class="corr-bar-wrap"><div class="corr-bar" style="width:74%;background:var(--da)"></div></div>
+              <div class="corr-val" style="color:var(--da)">29.1</div>
+              <div style="color:var(--t3);font-size:11px">vs</div>
+              <div class="corr-bar-wrap"><div class="corr-bar" style="width:88%;background:var(--dg)"></div></div>
+              <div class="corr-val" style="color:var(--dg)">31.4</div>
+              <div style="font-family:var(--fm);font-size:11px;color:var(--t3)">BPI &gt;75</div>
+            </div>
+          </div>
+          <div class="corr-row">
+            <div class="corr-metric">🧠 Fehlentscheidungen / Spiel</div>
+            <div style="display:flex;align-items:center;gap:8px;flex:1;justify-content:flex-end">
+              <div style="font-family:var(--fm);font-size:11px;color:var(--t3)">BPI &lt;60</div>
+              <div class="corr-bar-wrap"><div class="corr-bar" style="width:82%;background:var(--dr)"></div></div>
+              <div class="corr-val" style="color:var(--dr)">4.1</div>
+              <div style="color:var(--t3);font-size:11px">vs</div>
+              <div class="corr-bar-wrap"><div class="corr-bar" style="width:28%;background:var(--dg)"></div></div>
+              <div class="corr-val" style="color:var(--dg)">1.4</div>
+              <div style="font-family:var(--fm);font-size:11px;color:var(--t3)">BPI &gt;75</div>
+            </div>
+          </div>
+          <div class="corr-row">
+            <div class="corr-metric">⚽ Torschussbeteiligungen</div>
+            <div style="display:flex;align-items:center;gap:8px;flex:1;justify-content:flex-end">
+              <div style="font-family:var(--fm);font-size:11px;color:var(--t3)">BPI &lt;60</div>
+              <div class="corr-bar-wrap"><div class="corr-bar" style="width:38%;background:var(--dr)"></div></div>
+              <div class="corr-val" style="color:var(--dr)">1.9</div>
+              <div style="color:var(--t3);font-size:11px">vs</div>
+              <div class="corr-bar-wrap"><div class="corr-bar" style="width:72%;background:var(--dg)"></div></div>
+              <div class="corr-val" style="color:var(--dg)">3.6</div>
+              <div style="font-family:var(--fm);font-size:11px;color:var(--t3)">BPI &gt;75</div>
+            </div>
+          </div>
+        </div>
+        <button class="fs-btn" title="Vollbild" onclick="openFs('BPI ↔ Spielergebnis Korrelation','Saison 2025/26 — Pflichtspiele','corr-coach')">⛶</button>
+      </div>
+
+      <!-- TEAM RANKING -->
+
+      <!-- 6. TEAM RANKING TABELLE -->
+<div class="sl">Team-Ranking <span style="font-weight:400;color:var(--t3);font-size:10px;margin-left:6px">— Zeile anklicken für Spieler-Detail</span></div>
+      <div class="card" style="padding:0; overflow:hidden;">
+        <div class="scr" style="max-height:420px;">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th style="padding-left:14px">#</th>
+                <th>Spieler</th>
+                <th>BPI Avg</th>
+                <th>Ø Score</th>
+                <th>Sessions</th>
+                <th>Trend</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="coach-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 7. WELTRANGLISTE -->
+<div class="sl">Weltrangliste — Beste im Team</div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th style="padding-left:14px">Weltrang</th>
+              <th>Spieler</th>
+              <th>BPI</th>
+              <th>Score Ø</th>
+              <th>Team-Rang</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td style="padding-left:14px"><strong style="font-family:var(--fm);color:var(--da)">#312</strong></td><td><strong>M. Torres</strong></td><td style="font-family:var(--fm);font-weight:700;color:var(--green)">91</td><td style="font-family:var(--fm);color:var(--green)">94.1K</td><td><span class="badge b-ac">#1</span></td></tr>
+            <tr><td style="padding-left:14px"><strong style="font-family:var(--fm);color:var(--da)">#841</strong></td><td><strong>R. Kraft</strong></td><td style="font-family:var(--fm);font-weight:700;color:var(--green)">87</td><td style="font-family:var(--fm);color:var(--green)">88.7K</td><td><span class="badge bg">#2</span></td></tr>
+            <tr><td style="padding-left:14px"><strong style="font-family:var(--fm);color:var(--db)">#1.247</strong></td><td>L. Mayer</td><td style="font-family:var(--fm);font-weight:700;color:var(--green)">80</td><td style="font-family:var(--fm);color:var(--green)">82.4K</td><td><span class="badge bg">#3</span></td></tr>
+            <tr><td style="padding-left:14px"><strong style="font-family:var(--fm);color:var(--db)">#2.108</strong></td><td>N. Stern</td><td style="font-family:var(--fm);font-weight:700;color:var(--db)">76</td><td style="font-family:var(--fm);color:var(--db)">77.2K</td><td><span class="badge bb">#4</span></td></tr>
+            <tr><td style="padding-left:14px"><strong style="font-family:var(--fm);color:var(--db)">#3.455</strong></td><td>K. Bauer</td><td style="font-family:var(--fm);font-weight:700;color:var(--db)">73</td><td style="font-family:var(--fm);color:var(--db)">71.8K</td><td><span class="badge bb">#5</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- SCOUTING -->
+
+      <!-- 8. SCOUTING -->
+<div class="sl">Scouting — Höchstes Potenzial</div>
+      <div class="card">
+        <div class="card-top-line"></div>
+        <div style="font-size:12px;color:var(--t3);margin-bottom:13px;font-family:var(--fm)">Spieler mit stärkstem BPI-Wachstum — Kandidaten für höheres Niveau</div>
+        <div class="talent">
+          <div class="tav" style="background:rgba(255,190,61,0.12);color:var(--da)">MT</div>
+          <div style="flex:1">
+            <div class="tname">M. Torres <span style="font-weight:400;color:var(--t3);font-size:12px">· ST · 24 J.</span></div>
+            <div class="tmeta">BPI 91 · +8% Trend · 🔥 28d Streak · #312 Weltrang</div>
+          </div>
+          <div class="tbpi" style="color:var(--green)">91</div>
+          <span class="badge b-ac">ELITE</span>
+        </div>
+        <div class="talent">
+          <div class="tav" style="background:rgba(61,255,160,0.10);color:var(--green)">RK</div>
+          <div style="flex:1">
+            <div class="tname">R. Kraft <span style="font-weight:400;color:var(--t3);font-size:12px">· ZM · 22 J.</span></div>
+            <div class="tmeta">BPI 87 · +5% Trend · 🔥 21d · #841 Weltrang</div>
+          </div>
+          <div class="tbpi" style="color:var(--green)">87</div>
+          <span class="badge bg">TOP</span>
+        </div>
+        <div class="talent">
+          <div class="tav" style="background:rgba(96,165,250,0.10);color:var(--db)">LM</div>
+          <div style="flex:1">
+            <div class="tname">L. Mayer <span style="font-weight:400;color:var(--t3);font-size:12px">· MF · 21 J.</span></div>
+            <div class="tmeta">BPI 80 · +12% stärkstes Wachstum · 7d Streak</div>
+          </div>
+          <div class="tbpi" style="color:var(--green)">80</div>
+          <span class="badge bg">AUFSTEIGER</span>
+        </div>
+      </div>
+
+      <!-- TRAININGSEMPFEHLUNGEN + HANDLUNGSBEDARF -->
+
+      <!-- 9. HANDLUNGSBEDARF -->
+<div class="sl">Trainingsempfehlungen & Handlungsbedarf</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div class="alert al-g"><span class="aico">🏆</span><div class="abody"><strong>Reaktionszeit & PaceRace:</strong> Torres, Kraft, Mayer auf Saisonbestwert — als Mentoren einsetzen.</div></div>
+        <div class="alert al-a"><span class="aico">🧩</span><div class="abody"><strong>MindGrind (Gedächtnis):</strong> Team-Ø 61% — 14 Pkt unter Ziel. Empfehlung: 3× täglich vor Training.</div></div>
+        <div class="alert al-r"><span class="aico">🚨</span><div class="abody"><strong>P. Lang · D. Herrmann · F. Moll:</strong> BPI &lt; 60, stark rückläufig. Einzelgespräch diese Woche einplanen.</div></div>
+        <div class="alert al-b"><span class="aico">📊</span><div class="abody"><strong>Korrelation nachgewiesen:</strong> Spieler mit BPI &gt; 75 gewannen 78% ihrer Zweikämpfe diese Saison.</div></div>
+      </div>
+
+    </div>
+</div><!-- /coach -->
+
+
+<!-- ═══════════════════════════════════════════════
+     TAB 2 — JUGENDLEITER / NLZ-LEITER
+═══════════════════════════════════════════════ -->
+<div class="page" id="page-nlz" style="--hero-accent:var(--amber)">
+
+  <div class="hero">
+    <div class="hero-text">
+      <div class="hero-eyebrow" style="color:var(--amber)">🏟 Jugendleiter / NLZ-Leiter · Gesamtakademie</div>
+      <div class="hero-title" style="--hero-accent:var(--amber)">Dr. Andreas Fuchs — <em style="color:var(--amber)">NLZ-Direktor</em></div>
+      <div class="hero-sub">FC Brain1 · 6 Teams · 3 Trainer · 124 Spieler · U11–U21</div>
+    </div>
+    <div class="hero-stats" style="--hero-accent:var(--amber)">
+      <div class="hstat"><div class="hstat-val" style="color:var(--amber)">64</div><div class="hstat-lbl">Ø BPI</div></div>
+      <div class="hstat"><div class="hstat-val" style="color:var(--amber)">124</div><div class="hstat-lbl">Spieler</div></div>
+      <div class="hstat"><div class="hstat-val" style="color:var(--dv)">14</div><div class="hstat-lbl">Top-Talente</div></div>
+      <div class="hstat"><div class="hstat-val up" style="font-size:22px">▲ +21%</div><div class="hstat-lbl">BPI YoY</div></div>
+    </div>
+  </div>
+
+  <div class="body">
+
+      <!-- 1. BPI RANGLISTE -->
+<div class="bpi-chart-widget" id="bcw-nlz">
+        <div class="bcw-head">
+          <div class="bcw-title">
+            ⬡ BPI Rangliste — Gesamtakademie
+            <button class="bcw-open-btn" style="--btn-col:var(--amber)" onclick="openBcwPanel('nlz',this)">
+              ⚙ Filter <span class="bcw-active-count" id="bcw-nlz-count"></span>
+            </button>
+          </div>
+          <div class="bcw-panel" id="bcw-panel-nlz">
+            <div class="bcw-group">
+              <div class="bcw-group-label">Jugendmannschaft</div>
+              <div class="bcw-chips">
+                <div class="bcw-chip on" style="--cc:var(--amber)" data-tab="nlz" data-type="team" data-val="all" onclick="bcwChip(this)">Alle Teams</div>
+                <div class="bcw-chip" style="--cc:var(--amber)" data-tab="nlz" data-type="team" data-val="U11" onclick="bcwChip(this)">U11</div>
+                <div class="bcw-chip" style="--cc:var(--amber)" data-tab="nlz" data-type="team" data-val="U13" onclick="bcwChip(this)">U13</div>
+                <div class="bcw-chip" style="--cc:var(--amber)" data-tab="nlz" data-type="team" data-val="U15" onclick="bcwChip(this)">U15</div>
+                <div class="bcw-chip" style="--cc:var(--amber)" data-tab="nlz" data-type="team" data-val="U17" onclick="bcwChip(this)">U17</div>
+                <div class="bcw-chip" style="--cc:var(--amber)" data-tab="nlz" data-type="team" data-val="U19" onclick="bcwChip(this)">U19</div>
+                <div class="bcw-chip" style="--cc:var(--amber)" data-tab="nlz" data-type="team" data-val="U21" onclick="bcwChip(this)">U21</div>
+              </div>
+            </div>
+            <div class="bcw-group">
+              <div class="bcw-group-label">Talent-Status</div>
+              <div class="bcw-chips">
+                <div class="bcw-chip on" style="--cc:var(--amber)" data-tab="nlz" data-type="pot" data-val="all" onclick="bcwChip(this)">Alle</div>
+                <div class="bcw-chip" style="--cc:var(--amber)" data-tab="nlz" data-type="pot" data-val="top" onclick="bcwChip(this)">⭐ Top-Talente (BPI &gt; 750)</div>
+                <div class="bcw-chip" style="--cc:var(--amber)" data-tab="nlz" data-type="pot" data-val="rising" onclick="bcwChip(this)">📈 Aufsteiger</div>
+              </div>
+            </div>
+            <div class="bcw-group">
+              <div class="bcw-group-label">Altersgruppe</div>
+              <div class="bcw-chips">
+                <div class="bcw-chip on" style="--cc:var(--amber)" data-tab="nlz" data-type="age" data-val="all" onclick="bcwChip(this)">Alle Altersgruppen</div>
+                <div class="bcw-chip" style="--cc:var(--amber)" data-tab="nlz" data-type="age" data-val="U21" onclick="bcwChip(this)">Unter 21 J.</div>
+                <div class="bcw-chip" style="--cc:var(--amber)" data-tab="nlz" data-type="age" data-val="21-25" onclick="bcwChip(this)">21–25 J.</div>
+                <div class="bcw-chip" style="--cc:var(--amber)" data-tab="nlz" data-type="age" data-val="25+" onclick="bcwChip(this)">Über 25 J.</div>
+              </div>
+            </div>
+            <div class="bcw-group">
+              <div class="bcw-group-label">Entwicklung</div>
+              <div class="bcw-chips">
+                <div class="bcw-chip on" style="--cc:var(--amber)" data-tab="nlz" data-type="trend" data-val="all" onclick="bcwChip(this)">Alle</div>
+                <div class="bcw-chip" style="--cc:var(--amber)" data-tab="nlz" data-type="trend" data-val="up" onclick="bcwChip(this)">▲ Steigend</div>
+                <div class="bcw-chip" style="--cc:var(--amber)" data-tab="nlz" data-type="trend" data-val="dn" onclick="bcwChip(this)">▼ Fallend</div>
+              </div>
+            </div>
+            <button class="bcw-reset" onclick="bcwReset('nlz')">Filter zurücksetzen</button>
+          </div>
+        </div>
+        <div class="bcw-xaxis-top"><span>100</span><span>250</span><span>500</span><span>750</span><span>1000 →</span></div>
+        <div class="bcw-body" id="bcw-nlz-body"></div>
+      </div>
+
+      <!-- 2. KPIs -->
+<div class="sl">Akademie-KPIs</div>
+      <div class="kg" style="grid-template-columns:repeat(4,1fr)">
+        <div class="kc" style="--kcolor:var(--amber)"><div class="kl">Ø BPI Akademie</div><div class="kv">64</div><div class="ks">Alle 124 Spieler</div><div class="kd up">▲ +21% YoY</div></div>
+        <div class="kc" style="--kcolor:var(--dc)"><div class="kl">Total Sessions</div><div class="kv">3.57K</div><div class="ks">NLZ / Woche</div><div class="kd up">▲ +18%</div></div>
+        <div class="kc" style="--kcolor:var(--dv)"><div class="kl">Top-Talente</div><div class="kv">14</div><div class="ks">BPI &gt; 750</div><div class="kd" style="color:var(--dv)">Förderplan aktiv</div></div>
+        <div class="kc" style="--kcolor:var(--dr)"><div class="kl">Handlungsbedarf</div><div class="kv">9</div><div class="ks">Spieler BPI &lt; 50</div><div class="kd dn">▼ Gespräche nötig</div></div>
+      </div>
+
+      <!-- ALTERSGRUPPEN-VERGLEICH -->
+
+      <!-- 3. ALTERSGRUPPEN-VERGLEICH CHART -->
+<div class="sl">Altersgruppen-Vergleich</div>
+
+      <!-- AGE FILTER -->
+      <div class="age-filter" id="age-filter">
+        <div class="af-btn active" onclick="filterAge('all',this)">Alle Teams</div>
+        <div class="af-btn" onclick="filterAge('U11',this)">U11</div>
+        <div class="af-btn" onclick="filterAge('U13',this)">U13</div>
+        <div class="af-btn" onclick="filterAge('U15',this)">U15</div>
+        <div class="af-btn" onclick="filterAge('U17',this)">U17</div>
+        <div class="af-btn" onclick="filterAge('U19',this)">U19</div>
+        <div class="af-btn" onclick="filterAge('U21',this)">U21</div>
+      </div>
+
+      <div class="fcw">
+        <div class="card" id="age-compare-card">
+          <div class="card-top-line" style="background:linear-gradient(90deg,var(--amber),transparent)"></div>
+          <div class="ch">
+            <div class="ct" id="age-card-title">Ø BPI — Diese Woche vs. Vorwoche</div>
+            <span class="ctag b-am" id="age-card-tag">U11–U21</span>
+          </div>
+          <div class="cw h190"><canvas id="c_n_age"></canvas></div>
+        </div>
+        <button class="fs-btn" title="Vollbild" onclick="openFs('Altersgruppen-Vergleich Ø BPI','Diese Woche vs. Vorwoche','age-nlz')">⛶</button>
+      </div>
+
+      <!-- TEAM ÜBERSICHT KARTEN -->
+
+      <!-- 4. TEAM ÜBERSICHT -->
+<div class="sl">Teams — BPI · Score · Sessions</div>
+      <div class="tov">
+        <div class="tov-item" style="--tc:var(--db)">
+          <div class="tov-name">U15 — FC Brain1</div>
+          <div class="tov-stats">
+            <div><div class="tov-v" style="color:var(--db)">61</div><div class="tov-l">Ø BPI</div></div>
+            <div><div class="tov-v" style="color:var(--t2);font-size:16px">18</div><div class="tov-l">Spieler</div></div>
+            <div><div class="tov-v" style="color:var(--t2);font-size:16px">58.2K</div><div class="tov-l">Ø Score</div></div>
+          </div>
+          <div style="margin-top:9px;padding-left:9px;display:flex;gap:6px;align-items:center">
+            <span class="badge bb">AUFBAU</span>
+            <span class="up" style="font-size:13px">▲ +22%</span>
+          </div>
+        </div>
+        <div class="tov-item" style="--tc:var(--dc)">
+          <div class="tov-name">U17 — FC Brain1</div>
+          <div class="tov-stats">
+            <div><div class="tov-v" style="color:var(--dc)">68</div><div class="tov-l">Ø BPI</div></div>
+            <div><div class="tov-v" style="color:var(--t2);font-size:16px">20</div><div class="tov-l">Spieler</div></div>
+            <div><div class="tov-v" style="color:var(--t2);font-size:16px">64.8K</div><div class="tov-l">Ø Score</div></div>
+          </div>
+          <div style="margin-top:9px;padding-left:9px;display:flex;gap:6px;align-items:center">
+            <span class="badge bc">GUT</span>
+            <span class="up" style="font-size:13px">▲ +16%</span>
+          </div>
+        </div>
+        <div class="tov-item" style="--tc:var(--dv)">
+          <div class="tov-name">U19 — FC Brain1</div>
+          <div class="tov-stats">
+            <div><div class="tov-v" style="color:var(--dv)">71</div><div class="tov-l">Ø BPI</div></div>
+            <div><div class="tov-v" style="color:var(--t2);font-size:16px">20</div><div class="tov-l">Spieler</div></div>
+            <div><div class="tov-v" style="color:var(--t2);font-size:16px">68.4K</div><div class="tov-l">Ø Score</div></div>
+          </div>
+          <div style="margin-top:9px;padding-left:9px;display:flex;gap:6px;align-items:center">
+            <span class="badge bv">STARK</span>
+            <span class="up" style="font-size:13px">▲ +12%</span>
+          </div>
+        </div>
+        <div class="tov-item" style="--tc:var(var(--db))">
+          <div class="tov-name">U21 — FC Brain1</div>
+          <div class="tov-stats">
+            <div><div class="tov-v" style="color:var(--da)">61</div><div class="tov-l">Ø BPI</div></div>
+            <div><div class="tov-v" style="color:var(--t2);font-size:16px">28</div><div class="tov-l">Spieler</div></div>
+            <div><div class="tov-v" style="color:var(--t2);font-size:16px">58.9K</div><div class="tov-l">Ø Score</div></div>
+          </div>
+          <div style="margin-top:9px;padding-left:9px;display:flex;gap:6px;align-items:center">
+            <span class="badge ba">AUFBAU</span>
+            <span class="up" style="font-size:13px">▲ +14%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SPIELENTWICKLUNG ALLE TEAMS -->
+      <div class="fcw">
+        <div class="card">
+          <div class="card-top-line" style="background:linear-gradient(90deg,var(--amber),transparent)"></div>
+          <div class="ch"><div class="ct">Spielentwicklung — Ø BPI Saisonverlauf alle Teams</div></div>
+          <div class="cw h210"><canvas id="c_n_trend"></canvas></div>
+        </div>
+        <button class="fs-btn" title="Vollbild" onclick="openFs('Spielentwicklung — Ø BPI Saisonverlauf','Alle Altersgruppen U11–U21','trend-nlz')">⛶</button>
+      </div>
+
+      <!-- BPI RANG VERGLEICH -->
+      <div class="card">
+        <div class="ch"><div class="ct">BPI Rang — Max · Ø · Min pro Team</div></div>
+        <div class="cw h190"><canvas id="c_n_range"></canvas></div>
+      </div>
+
+      <!-- 5. SCOUTING -->
+<div class="sl">🌟 Scouting — Top-Talente & Weltrangliste</div>
+      <div class="card" style="padding:14px 18px;">
+        <div class="card-top-line" style="background:linear-gradient(90deg,var(--amber),transparent)"></div>
+        <div style="font-size:12px;color:var(--t3);margin-bottom:13px;font-family:var(--fm)">Spieler mit höchstem BPI und stärkstem Entwicklungstrend aller Altersgruppen</div>
+        <div class="talent">
+          <div class="tav" style="background:rgba(255,190,61,0.14);color:var(--amber);font-size:17px">🌟</div>
+          <div style="flex:1">
+            <div class="tname">L. Vogt <span style="font-weight:400;color:var(--t3);font-size:12px">U19 · ST · 17 J.</span></div>
+            <div class="tmeta">BPI +31% · 🔥 24d Streak · Weltrang <strong style="color:var(--amber)">#898</strong></div>
+          </div>
+          <div class="tbpi" style="color:var(--dg)">84</div>
+          <span class="badge b-am">PROFI</span>
+        </div>
+        <div class="talent">
+          <div class="tav" style="background:rgba(255,190,61,0.10);color:var(--amber);font-size:16px">⭐</div>
+          <div style="flex:1">
+            <div class="tname">K. Nkosi <span style="font-weight:400;color:var(--t3);font-size:12px">U17 · MF · 16 J.</span></div>
+            <div class="tmeta">BPI +28% · Score 87.1K · Weltrang <strong style="color:var(--da)">#2.841</strong></div>
+          </div>
+          <div class="tbpi" style="color:var(--dg)">82</div>
+          <span class="badge b-am">PROFI</span>
+        </div>
+        <div class="talent">
+          <div class="tav" style="background:rgba(167,139,250,0.12);color:var(--dv);font-size:16px">⭐</div>
+          <div style="flex:1">
+            <div class="tname">F. Meyer <span style="font-weight:400;color:var(--t3);font-size:12px">U19 · IV · 18 J.</span></div>
+            <div class="tmeta">BPI +24% · Best Streak 🔥 31d · Weltrang <strong style="color:var(--da)">#3.102</strong></div>
+          </div>
+          <div class="tbpi" style="color:var(--dg)">81</div>
+          <span class="badge b-am">PROFI</span>
+        </div>
+        <div class="talent">
+          <div class="tav" style="background:rgba(96,165,250,0.10);color:var(--db)">TH</div>
+          <div style="flex:1">
+            <div class="tname">T. Hassan <span style="font-weight:400;color:var(--t3);font-size:12px">U21 · ZM · 19 J.</span></div>
+            <div class="tmeta">BPI +19% · 31 Sessions · Weltrang <strong style="color:var(--db)">#5.447</strong></div>
+          </div>
+          <div class="tbpi" style="color:var(--db)">79</div>
+          <span class="badge bb">FÖRDERUNG</span>
+        </div>
+        <div class="talent">
+          <div class="tav" style="background:rgba(52,211,153,0.10);color:var(--dg)">PS</div>
+          <div style="flex:1">
+            <div class="tname">P. Schwarz <span style="font-weight:400;color:var(--t3);font-size:12px">U15 · TW · 15 J.</span></div>
+            <div class="tmeta">Jüngster BPI &gt; 75 im NLZ · Weltrang <strong style="color:var(--dg)">#7.881</strong></div>
+          </div>
+          <div class="tbpi" style="color:var(--dg)">76</div>
+          <span class="badge bg">ZUKUNFT</span>
+        </div>
+      </div>
+
+      <!-- KOGNITIVES PROFIL RADAR -->
+      <div class="fcw">
+        <div class="card">
+          <div class="card-top-line" style="background:linear-gradient(90deg,var(--amber),transparent)"></div>
+          <div class="ch">
+            <div class="ct">Kognitives Profil — Altersgruppen-Vergleich</div>
+            <span class="ctag b-am">RADAR</span>
+          </div>
+          <div class="cw h260"><canvas id="c_n_radar"></canvas></div>
+        </div>
+        <button class="fs-btn" title="Vollbild" onclick="openFs('Kognitives Profil — Altersgruppen','Radar-Vergleich U11–U21 vs. NLZ-Ziel 2026','radar-nlz')">⛶</button>
+      </div>
+
+      <!-- TRAINER PERFORMANCE -->
+
+      <!-- 6. TRAINER PERFORMANCE -->
+<div class="sl">Trainer-Performance — 1 Trainer pro Team</div>
+      <div class="card">
+        <div class="card-top-line" style="background:linear-gradient(90deg,var(--amber),transparent)"></div>
+
+        <div class="trow">
+          <div class="tav-c" style="background:rgba(107,114,128,0.12);color:var(--ds)">SG</div>
+          <div style="flex:1">
+            <div class="trow-name">Stefan Grün <span style="font-size:11px;color:var(--t3);font-weight:400">· U11</span></div>
+            <div class="trow-sub">18 Spieler · Ø BPI 52 · Ø Score: 48.3K · Trend ▲ +28%</div>
+          </div>
+          <div class="trow-bar"><div class="trow-fill" style="width:52%;background:var(--ds)"></div></div>
+          <div class="trow-bpi" style="color:var(--ds)">52</div>
+          <span class="badge" style="background:rgba(107,114,128,0.1);color:var(--ds);border:1px solid rgba(107,114,128,0.2)">AUFBAU</span>
+        </div>
+
+        <div class="trow">
+          <div class="tav-c" style="background:rgba(96,165,250,0.1);color:var(--db)">MK</div>
+          <div style="flex:1">
+            <div class="trow-name">Marcus Keller <span style="font-size:11px;color:var(--t3);font-weight:400">· U13</span></div>
+            <div class="trow-sub">20 Spieler · Ø BPI 57 · Ø Score: 53.6K · Trend ▲ +24%</div>
+          </div>
+          <div class="trow-bar"><div class="trow-fill" style="width:57%;background:var(--db)"></div></div>
+          <div class="trow-bpi" style="color:var(--db)">57</div>
+          <span class="badge bb">AUFBAU</span>
+        </div>
+
+        <div class="trow">
+          <div class="tav-c" style="background:rgba(96,165,250,0.14);color:#60a5fa">JP</div>
+          <div style="flex:1">
+            <div class="trow-name">Jonas Pfeiffer <span style="font-size:11px;color:var(--t3);font-weight:400">· U15</span></div>
+            <div class="trow-sub">18 Spieler · Ø BPI 61 · Ø Score: 58.2K · Trend ▲ +22%</div>
+          </div>
+          <div class="trow-bar"><div class="trow-fill" style="width:61%;background:#60a5fa"></div></div>
+          <div class="trow-bpi" style="color:#60a5fa">61</div>
+          <span class="badge bb">GUT</span>
+        </div>
+
+        <div class="trow">
+          <div class="tav-c" style="background:rgba(34,211,238,0.1);color:var(--dc)">TB</div>
+          <div style="flex:1">
+            <div class="trow-name">Thomas Bauer <span style="font-size:11px;color:var(--t3);font-weight:400">· U17</span></div>
+            <div class="trow-sub">20 Spieler · Ø BPI 68 · Ø Score: 64.8K · Trend ▲ +16%</div>
+          </div>
+          <div class="trow-bar"><div class="trow-fill" style="width:68%;background:var(--dc)"></div></div>
+          <div class="trow-bpi" style="color:var(--dc)">68</div>
+          <span class="badge bc">GUT</span>
+        </div>
+
+        <div class="trow">
+          <div class="tav-c" style="background:rgba(167,139,250,0.12);color:var(--dv)">LW</div>
+          <div style="flex:1">
+            <div class="trow-name">Laura Wendt <span style="font-size:11px;color:var(--t3);font-weight:400">· U19</span></div>
+            <div class="trow-sub">20 Spieler · Ø BPI 71 · Ø Score: 68.4K · Trend ▲ +12%</div>
+          </div>
+          <div class="trow-bar"><div class="trow-fill" style="width:71%;background:var(--dv)"></div></div>
+          <div class="trow-bpi" style="color:var(--dv)">71</div>
+          <span class="badge bv">STARK</span>
+        </div>
+
+        <div class="trow">
+          <div class="tav-c" style="background:rgba(251,191,36,0.1);color:var(--da)">RH</div>
+          <div style="flex:1">
+            <div class="trow-name">Robert Huber <span style="font-size:11px;color:var(--t3);font-weight:400">· U21</span></div>
+            <div class="trow-sub">28 Spieler · Ø BPI 61 · Ø Score: 58.9K · Trend ▲ +14%</div>
+          </div>
+          <div class="trow-bar"><div class="trow-fill" style="width:61%;background:var(--da)"></div></div>
+          <div class="trow-bpi" style="color:var(--da)">61</div>
+          <span class="badge ba">AUFBAU</span>
+        </div>
+
+      </div>
+
+      <!-- HANDLUNGSBEDARF + INSIGHTS -->
+
+      <!-- 7. HANDLUNGSBEDARF -->
+<div class="sl">Handlungsbedarf & Erkenntnisse</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div class="alert al-r"><span class="aico">🚨</span><div class="abody"><strong>9 Spieler BPI &lt; 50:</strong> U11 (3), U13 (3), U21 (3). Coaches informiert — Förderpläne bis Ende Woche.</div></div>
+        <div class="alert al-am"><span class="aico">🌟</span><div class="abody"><strong>Vogt & Nkosi:</strong> Aufnahme in Profi-Kader zur Beobachtung ab Sommer empfohlen.</div></div>
+        <div class="alert al-b"><span class="aico">📊</span><div class="abody"><strong>U15 stärkstes Wachstum +22%:</strong> Frühzeitige Brain1-Integration wirkt — Ausweitung auf U13 empfohlen.</div></div>
+        <div class="insight"><span class="iico">💡</span><div><div class="ititle">ROI Brain1-Programm: +21% BPI YoY</div><div class="itext">BPI &gt; 75 korreliert mit 81% Zweikampfrate — doppelt so hoch wie Spieler unter 60.</div></div></div>
+      </div>
+
+    </div>
+</div><!-- /nlz -->
+
+
+<!-- ═══════════════════════════════════════════════
+     TAB 3 — VEREINSPRÄSIDENT
+═══════════════════════════════════════════════ -->
+<div class="page" id="page-pres" style="--hero-accent:#e879f9">
+
+  <div class="hero">
+    <div class="hero-text">
+      <div class="hero-eyebrow" style="color:#e879f9">👑 Vereinspräsident · Gesamtübersicht</div>
+      <div class="hero-title">Klaus Brandt — <em style="color:#e879f9">Präsident</em></div>
+      <div class="hero-sub">FC Brain1 · 3 Mannschaften · 58 Spieler · Saison 2025/26</div>
+    </div>
+    <div class="hero-right">
+      <div class="hstat"><div class="hstat-val" style="color:#e879f9">71</div><div class="hstat-lbl">Ø BPI Verein</div></div>
+      <div class="hstat"><div class="hstat-val" style="color:var(--dg)">54/58</div><div class="hstat-lbl">Aktive Spieler</div></div>
+      <div class="hstat"><div class="hstat-val" style="color:var(--da)">12</div><div class="hstat-lbl">Top-Talente</div></div>
+      <div class="hstat"><div class="hstat-val up" style="font-size:22px">▲ +14%</div><div class="hstat-lbl">BPI YoY</div></div>
+    </div>
+  </div>
+
+  <div class="body">
+
+      <!-- 1. BPI RANGLISTE -->
+<div class="bpi-chart-widget" id="bcw-pres">
+        <div class="bcw-head">
+          <div class="bcw-title">
+            ⬡ BPI Rangliste — Gesamtverein
+            <button class="bcw-open-btn" style="--btn-col:#e879f9" onclick="openBcwPanel('pres',this)">
+              ⚙ Filter <span class="bcw-active-count" id="bcw-pres-count"></span>
+            </button>
+          </div>
+          <div class="bcw-panel" id="bcw-panel-pres">
+            <div class="bcw-group">
+              <div class="bcw-group-label">Mannschaft / Jugend</div>
+              <div class="bcw-chips">
+                <div class="bcw-chip on" style="--cc:#e879f9" data-tab="pres" data-type="team" data-val="all" onclick="bcwChip(this)">Alle</div>
+                <div class="bcw-chip" style="--cc:#e879f9" data-tab="pres" data-type="team" data-val="1.Mannschaft" onclick="bcwChip(this)">1. Mannschaft</div>
+                <div class="bcw-chip" style="--cc:#e879f9" data-tab="pres" data-type="team" data-val="2.Mannschaft" onclick="bcwChip(this)">2. Mannschaft</div>
+                <div class="bcw-chip" style="--cc:#e879f9" data-tab="pres" data-type="team" data-val="U21" onclick="bcwChip(this)">U21</div>
+                <div class="bcw-chip" style="--cc:#e879f9" data-tab="pres" data-type="team" data-val="U19" onclick="bcwChip(this)">U19</div>
+                <div class="bcw-chip" style="--cc:#e879f9" data-tab="pres" data-type="team" data-val="U17" onclick="bcwChip(this)">U17</div>
+                <div class="bcw-chip" style="--cc:#e879f9" data-tab="pres" data-type="team" data-val="U15" onclick="bcwChip(this)">U15</div>
+                <div class="bcw-chip" style="--cc:#e879f9" data-tab="pres" data-type="team" data-val="U13" onclick="bcwChip(this)">U13</div>
+                <div class="bcw-chip" style="--cc:#e879f9" data-tab="pres" data-type="team" data-val="U11" onclick="bcwChip(this)">U11</div>
+              </div>
+            </div>
+            <div class="bcw-group">
+              <div class="bcw-group-label">BPI-Level</div>
+              <div class="bcw-chips">
+                <div class="bcw-chip on" style="--cc:#e879f9" data-tab="pres" data-type="bpi" data-val="all" onclick="bcwChip(this)">Alle</div>
+                <div class="bcw-chip" style="--cc:#e879f9" data-tab="pres" data-type="bpi" data-val="elite" onclick="bcwChip(this)">Elite &gt; 800</div>
+                <div class="bcw-chip" style="--cc:#e879f9" data-tab="pres" data-type="bpi" data-val="gut" onclick="bcwChip(this)">Gut 600–800</div>
+                <div class="bcw-chip" style="--cc:#e879f9" data-tab="pres" data-type="bpi" data-val="mittel" onclick="bcwChip(this)">Mittel 400–600</div>
+                <div class="bcw-chip" style="--cc:#e879f9" data-tab="pres" data-type="bpi" data-val="kritisch" onclick="bcwChip(this)">Kritisch &lt; 400</div>
+              </div>
+            </div>
+            <div class="bcw-group">
+              <div class="bcw-group-label">Position</div>
+              <div class="bcw-chips">
+                <div class="bcw-chip on" style="--cc:#e879f9" data-tab="pres" data-type="pos" data-val="all" onclick="bcwChip(this)">Alle Positionen</div>
+                <div class="bcw-chip" style="--cc:#e879f9" data-tab="pres" data-type="pos" data-val="ST" onclick="bcwChip(this)">Stürmer</div>
+                <div class="bcw-chip" style="--cc:#e879f9" data-tab="pres" data-type="pos" data-val="MF" onclick="bcwChip(this)">Mittelfeld</div>
+                <div class="bcw-chip" style="--cc:#e879f9" data-tab="pres" data-type="pos" data-val="IV" onclick="bcwChip(this)">Innenverteidiger</div>
+                <div class="bcw-chip" style="--cc:#e879f9" data-tab="pres" data-type="pos" data-val="TW" onclick="bcwChip(this)">Torwart</div>
+              </div>
+            </div>
+            <div class="bcw-group">
+              <div class="bcw-group-label">Altersgruppe</div>
+              <div class="bcw-chips">
+                <div class="bcw-chip on" style="--cc:#e879f9" data-tab="pres" data-type="age" data-val="all" onclick="bcwChip(this)">Alle</div>
+                <div class="bcw-chip" style="--cc:#e879f9" data-tab="pres" data-type="age" data-val="U21" onclick="bcwChip(this)">Unter 21 J.</div>
+                <div class="bcw-chip" style="--cc:#e879f9" data-tab="pres" data-type="age" data-val="21-25" onclick="bcwChip(this)">21–25 J.</div>
+                <div class="bcw-chip" style="--cc:#e879f9" data-tab="pres" data-type="age" data-val="25+" onclick="bcwChip(this)">Über 25 J.</div>
+              </div>
+            </div>
+            <div class="bcw-group">
+              <div class="bcw-group-label">Entwicklung</div>
+              <div class="bcw-chips">
+                <div class="bcw-chip on" style="--cc:#e879f9" data-tab="pres" data-type="trend" data-val="all" onclick="bcwChip(this)">Alle</div>
+                <div class="bcw-chip" style="--cc:#e879f9" data-tab="pres" data-type="trend" data-val="up" onclick="bcwChip(this)">▲ Steigend</div>
+                <div class="bcw-chip" style="--cc:#e879f9" data-tab="pres" data-type="trend" data-val="dn" onclick="bcwChip(this)">▼ Fallend</div>
+              </div>
+            </div>
+            <div class="bcw-group">
+              <div class="bcw-group-label">Scouting</div>
+              <div class="bcw-chips">
+                <div class="bcw-chip on" style="--cc:#e879f9" data-tab="pres" data-type="scout" data-val="all" onclick="bcwChip(this)">Alle</div>
+                <div class="bcw-chip" style="--cc:#e879f9" data-tab="pres" data-type="scout" data-val="profi" onclick="bcwChip(this)">⭐ Profi-Potenzial</div>
+                <div class="bcw-chip" style="--cc:#e879f9" data-tab="pres" data-type="scout" data-val="transfer" onclick="bcwChip(this)">💰 Transfer-Kandidaten</div>
+                <div class="bcw-chip" style="--cc:#e879f9" data-tab="pres" data-type="scout" data-val="foerder" onclick="bcwChip(this)">🎯 Förderungsbedarf</div>
+              </div>
+            </div>
+            <button class="bcw-reset" onclick="bcwReset('pres')">Filter zurücksetzen</button>
+          </div>
+        </div>
+        <div class="bcw-xaxis-top"><span>100</span><span>250</span><span>500</span><span>750</span><span>1000 →</span></div>
+        <div class="bcw-body" id="bcw-pres-body"></div>
+      </div>
+
+      <!-- 2. KPIs -->
+
+
+      <!-- 3. MANNSCHAFTS-VERGLEICH CHARTS -->
+<div class="sl">Mannschafts-Vergleich</div>
+      <div class="card">
+        <div class="card-top-line" style="background:linear-gradient(90deg,#e879f9,transparent)"></div>
+        <div class="ch"><div class="ct">Ø BPI Average — diese Woche vs. Vorwoche</div></div>
+        <div class="cw h190"><canvas id="c_p_teams"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="ch"><div class="ct">BPI-Saison-Verlauf — alle Mannschaften</div></div>
+        <div class="cw h190"><canvas id="c_p_season"></canvas></div>
+      </div>
+
+      <!-- 2. KPIs -->
+<div class="sl">Vereins-KPIs — Saison 2025/26</div>
+      <div class="kg" style="grid-template-columns:repeat(4,1fr)">
+        <div class="kc" style="--kcolor:#e879f9">
+          <div class="kl">Ø BPI Verein</div>
+          <div class="kv">71</div>
+          <div class="ks">Alle 58 Spieler</div>
+          <div class="kd up">▲ +14% YoY</div>
+        </div>
+        <div class="kc" style="--kcolor:var(--da)">
+          <div class="kl">Total Sessions</div>
+          <div class="kv">4.2K</div>
+          <div class="ks">Alle Mannschaften</div>
+          <div class="kd up">▲ +31% YoY</div>
+        </div>
+        <div class="kc" style="--kcolor:var(--db)">
+          <div class="kl">Top-Performer</div>
+          <div class="kv">12</div>
+          <div class="ks">BPI Average ≥ 850</div>
+          <div class="kd up">▲ +4 vs. Vorjahr</div>
+        </div>
+        <div class="kc" style="--kcolor:var(--dr)">
+          <div class="kl">Kritische Fälle</div>
+          <div class="kv">5</div>
+          <div class="ks">Spieler BPI &lt; 55</div>
+          <div class="kd dn">▼ Trainer informiert</div>
+        </div>
+      </div>
+
+      <!-- Strategische Insights -->
+      <div class="sl">Strategische Erkenntnisse</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div class="insight"><span class="iico">📈</span><div><div class="ititle">BPI korreliert mit Spielergebnissen</div><div class="itext">Teams mit Ø BPI &gt; 70 gewannen 78% ihrer Partien diese Saison. Signifikante Korrelation nachgewiesen.</div></div></div>
+        <div class="insight"><span class="iico">💡</span><div><div class="ititle">ROI Brain1-Programm: +18%</div><div class="itext">Stärkster Effekt: Reaktionszeit (+12%) und Entscheidungsqualität unter Druck (+9%). Programm wirkt.</div></div></div>
+        <div class="alert al-r" style="margin-top:4px"><span class="aico">🚨</span><div class="abody"><strong>5 Spieler unter BPI-Mindestschwelle</strong> — Trainer der 1. und 2. Mannschaft sind informiert.</div></div>
+      </div>
+
+    </div>
+</div><!-- /pres -->
+
+
+<script>
+// ── CONSTANTS ────────────────────────────────────────────────
+const G='#3dffa0', A='#ffbe3d';
+const dg='#34d399', db='#60a5fa', da='#fbbf24', dr='#f87171', dv='#a78bfa', dc='#22d3ee', ds='#6b7280';
+
+Chart.defaults.font.family = "'Outfit', sans-serif";
+Chart.defaults.font.size   = 12;
+Chart.defaults.color       = '#4e6a85';
+
+const TT = { backgroundColor:'#111d2c', borderColor:'rgba(255,255,255,0.09)', borderWidth:1, titleColor:'#eaf2ff', bodyColor:'#8fafc8', padding:10, cornerRadius:6 };
+const GRID = { color:'rgba(255,255,255,0.04)' };
+const TICK = { color:'#4e6a85' };
+const months = ['Okt','Nov','Dez','Jan','Feb','Mär','Apr'];
+
+function lds(data,color,label,dash=false,fill=true){
+  return { label, data, borderColor:color, backgroundColor:fill?color+'14':'transparent',
+    borderWidth:2.5, borderDash:dash?[5,4]:[], pointBackgroundColor:color,
+    pointRadius:3.5, pointHoverRadius:5, tension:0.42, fill };
+}
+
+// ── COACH: PLAYER TABLE ──────────────────────────────────────
+const players = [
+  [1,'M. Torres','ST',91,94100,28,'up','▲ +8%','ELITE','b-ac', [82,85,88,90,89,91,91],[96,92,94,85,89,91]],
+  [2,'R. Kraft','ZM',87,88700,25,'up','▲ +5%','TOP','bg',      [80,81,83,85,86,86,87],[90,88,85,82,87,84]],
+  [3,'L. Mayer','MF',80,82400,24,'up','▲ +12%','GUT','bg',     [62,65,68,71,74,76,80],[84,79,83,75,80,82]],
+  [4,'N. Stern','LA',76,77200,22,'up','▲ +3%','GUT','bg',       [70,71,72,73,74,75,76],[80,76,79,74,78,75]],
+  [5,'K. Bauer','IV',73,71800,20,'flat','→ 0%','OK','bb',       [68,69,70,72,73,72,73],[74,70,76,69,73,71]],
+  [6,'J. Vogel','RA',71,69300,19,'up','▲ +4%','OK','bb',        [65,66,68,69,70,70,71],[72,69,74,68,71,70]],
+  [7,'A. Koch','IV',69,66100,18,'flat','→ +1%','OK','bb',       [64,65,66,67,68,69,69],[70,67,72,65,70,68]],
+  [8,'S. Richter','TW',67,62400,17,'dn','▼ −2%','OK','bb',      [66,67,68,68,68,67,67],[68,65,70,64,68,67]],
+  [9,'C. Braun','ZM',63,54200,12,'dn','▼ −6%','GRENZ.','ba',    [68,67,66,65,65,64,63],[65,62,67,60,64,62]],
+  [10,'T. Weber','ST',61,50800,10,'dn','▼ −9%','GRENZ.','ba',   [68,67,66,64,63,62,61],[63,60,65,58,62,60]],
+  ['·','···','···','','','','flat','','','',[], []],
+  [16,'P. Lang','TW',61,48300,9,'dn','▼ −9%','KRIT.','br',      [70,68,66,64,63,62,61],[63,59,65,57,62,59]],
+  [17,'D. Herrmann','RA',54,31200,5,'dn','▼ −18%','KRIT.','br', [66,64,61,58,57,55,54],[56,52,58,50,55,52]],
+  [18,'F. Moll','IV',49,22500,3,'dn','▼ −24%','KRIT.','br',     [65,62,58,54,52,50,49],[51,47,53,45,50,47]],
+];
+
+const bpiCol = v => v>=80?G:v>=70?db:v>=60?da:dr;
+const rankBg  = [
+  {bg:'rgba(255,190,61,0.12)',col:da},
+  {bg:'rgba(148,163,184,0.08)',col:ds},
+  {bg:'rgba(148,163,184,0.06)',col:ds},
+];
+
+const tbody = document.getElementById('coach-tbody');
+players.forEach(p => {
+  const [rank,name,pos,bpi,score,sess,trend,trendStr,status,badgeClass,hist,radar] = p;
+  const tr = document.createElement('tr');
+  if (status==='KRIT.') tr.style.background='rgba(248,113,113,0.04)';
+  if (status==='GRENZ.') tr.style.background='rgba(251,191,36,0.03)';
+  if (rank==='·') {
+    tr.innerHTML=`<td colspan="7" style="text-align:center;color:var(--t3);font-family:var(--fm);font-size:11px;padding:8px">··· 6 weitere Spieler ···</td>`;
+  } else {
+    const rc = rankBg[rank-1] || {bg:'var(--bg4)',col:'var(--t3)'};
+    tr.style.cursor = 'pointer';
+    tr.setAttribute('title','Klicken für Spieler-Detail');
+    tr.addEventListener('click', () => openDrilldown(rank,name,pos,bpi,score,sess,hist,radar));
+    tr.innerHTML = `
+      <td style="padding-left:14px"><span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:5px;background:${rc.bg};color:${rc.col};font-family:var(--fm);font-size:12px;font-weight:700">${rank}</span></td>
+      <td><strong style="font-family:var(--f1);font-size:14px">${name}</strong><span style="color:var(--t3);font-size:11px;margin-left:6px">${pos}</span></td>
+      <td style="font-family:var(--fm);font-weight:700;font-size:18px;color:${bpiCol(bpi)}">${bpi}</td>
+      <td style="font-family:var(--fm);color:${bpiCol(bpi)};font-size:13px">${(score/1000).toFixed(1)}K</td>
+      <td style="font-family:var(--fm);color:var(--t3);font-size:13px">${sess}</td>
+      <td class="${trend}" style="font-size:13px">${trendStr}</td>
+      <td><span class="badge ${badgeClass}">${status}</span></td>`;
+  }
+  tbody.appendChild(tr);
+});
+
+// ── COACH: TREND + FORECAST ──────────────────────────────────
+// Use separate datasets so the line connects properly at the join point
+const allLabels = ['Okt','Nov','Dez','Jan','Feb','Mär','Apr','Mai','Jun','Jul'];
+// Actual: 7 real points + 3 nulls
+const actualData    = [62,65,67,70,72,73,74,null,null,null];
+// Forecast: 6 nulls + 4 projected points (starts at same value as last actual)
+const forecastData  = [null,null,null,null,null,null,74,76,78,80];
+
+window.addEventListener('load', () => {
+  requestAnimationFrame(() => {
+    renderBcw('coach');
+    new Chart(document.getElementById('c_c_trend'), {
+  type: 'line',
+  data: { labels: allLabels, datasets: [
+    { label:'Tatsächlich', data:actualData,
+      borderColor:G, backgroundColor:G+'14', borderWidth:2.5,
+      pointBackgroundColor:G, pointRadius:[4,4,4,4,4,4,4,0,0,0],
+      pointHoverRadius:6, tension:0.42, fill:true },
+    { label:'Prognose +4 Wo.', data:forecastData,
+      borderColor:G+'aa', backgroundColor:'transparent', borderWidth:2, borderDash:[6,4],
+      pointBackgroundColor:G, pointRadius:[0,0,0,0,0,0,4,4,4,4],
+      pointHoverRadius:5, tension:0.42, fill:false },
+    { label:'Saisonziel 80', data:Array(10).fill(80),
+      borderColor:da+'77', backgroundColor:'transparent',
+      borderDash:[5,4], borderWidth:1.5, pointRadius:Array(10).fill(0), fill:false }
+  ]},
+  options: { responsive:true, maintainAspectRatio:false,
+    plugins: { legend:{ display:true, position:'top', labels:{ color:'#8fafc8', boxWidth:10, font:{size:12} } }, tooltip:TT },
+    scales: { x:{grid:GRID,ticks:TICK}, y:{min:50,max:88,grid:GRID,ticks:TICK} }
+  }
+});
+
+// ── COACH: RADAR ─────────────────────────────────────────────
+new Chart(document.getElementById('c_c_radar'), {
+  type: 'radar',
+  data: {
+    labels: ['Reaktion','Entscheidung','Raumwahrnehm.','Gedächtnis','Mustererkennung','Konzentration'],
+    datasets: [
+      { label:'M. Torres', data:[96,92,94,85,89,91], borderColor:da, backgroundColor:da+'18', borderWidth:2.5, pointBackgroundColor:da, pointRadius:4 },
+      { label:'Team-Ø',    data:[83,78,86,61,68,63], borderColor:G+'99', backgroundColor:'transparent', borderDash:[4,4], borderWidth:1.5, pointRadius:0 }
+    ]
+  },
+  options: { responsive:true, maintainAspectRatio:false,
+    plugins: { legend:{ display:true, position:'top', labels:{ color:'#8fafc8', boxWidth:10, font:{size:12} } }, tooltip:TT },
+    scales: { r:{ ticks:{display:false}, grid:{color:'rgba(255,255,255,0.06)'}, pointLabels:{color:'#8fafc8',font:{size:12}}, angleLines:{color:'rgba(255,255,255,0.06)'}, suggestedMin:40, suggestedMax:100 } }
+  }
+})
+  });
+});
+;
+
+// ── NLZ: LAZY INIT ───────────────────────────────────────────
+let nlzReady = false;
+let ageChart  = null;
+
+const ageData = {
+  all: { now:[52,57,61,68,71,61], prev:[41,46,50,59,63,54], labels:['U11','U13','U15','U17','U19','U21'], colors:[ds+'cc',db+'cc',db+'cc',dc+'cc',dv+'cc',da+'cc'] },
+  U11: { now:[52], prev:[41], labels:['U11'], colors:[ds+'cc'] },
+  U13: { now:[57], prev:[46], labels:['U13'], colors:[db+'cc'] },
+  U15: { now:[61], prev:[50], labels:['U15'], colors:['#60a5facc'] },
+  U17: { now:[68], prev:[59], labels:['U17'], colors:[dc+'cc'] },
+  U19: { now:[71], prev:[63], labels:['U19'], colors:[dv+'cc'] },
+  U21: { now:[61], prev:[54], labels:['U21'], colors:[da+'cc'] },
+};
+
+function initNlzCharts() {
+  if (nlzReady) return;
+  nlzReady = true;
+
+  ageChart = new Chart(document.getElementById('c_n_age'), {
+    type: 'bar',
+    data: { labels: ageData.all.labels, datasets: [
+      { label:'Diese Woche', data:ageData.all.now, backgroundColor:ageData.all.colors, borderRadius:5, barPercentage:0.55 },
+      { label:'Vorwoche',    data:ageData.all.prev, backgroundColor:Array(6).fill('rgba(255,255,255,0.05)'), borderRadius:5, barPercentage:0.55 },
+    ]},
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins: { legend:{ display:true, position:'top', labels:{ color:'#8fafc8', boxWidth:10, font:{size:12} } }, tooltip:TT },
+      scales: { x:{grid:{display:false},ticks:{color:'#8fafc8',font:{size:13}}}, y:{min:0,max:85,grid:GRID,ticks:TICK} }
+    }
+  });
+
+  new Chart(document.getElementById('c_n_trend'), {
+    type: 'line',
+    data: { labels: months, datasets: [
+      lds([38,40,44,46,48,50,52],ds,'U11'), lds([44,46,49,51,53,55,57],db,'U13'),
+      lds([50,52,54,56,58,59,61],db,'U15'), lds([55,58,61,63,65,67,68],dc,'U17'),
+      lds([58,61,63,66,68,70,71],dv,'U19'), lds([48,50,52,54,56,59,61],da,'U21'),
+    ]},
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins: { legend:{ display:true, position:'top', labels:{ color:'#8fafc8', boxWidth:10, font:{size:11} } }, tooltip:TT },
+      scales: { x:{grid:GRID,ticks:TICK}, y:{min:30,max:80,grid:GRID,ticks:TICK} }
+    }
+  });
+
+  new Chart(document.getElementById('c_n_range'), {
+    type: 'bar',
+    data: { labels:['U11','U13','U15','U17','U19','U21'], datasets: [
+      { label:'Max BPI', data:[71,76,79,84,84,82], backgroundColor:dg+'88', borderRadius:4, barPercentage:0.7 },
+      { label:'Ø BPI',   data:[52,57,61,68,71,61], backgroundColor:A+'99',  borderRadius:4, barPercentage:0.7 },
+      { label:'Min BPI', data:[38,41,48,52,55,44], backgroundColor:dr+'66', borderRadius:4, barPercentage:0.7 },
+    ]},
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins: { legend:{ display:true, position:'top', labels:{ color:'#8fafc8', boxWidth:10, font:{size:11} } }, tooltip:TT },
+      scales: { x:{grid:{display:false},ticks:{color:'#8fafc8',font:{size:13}}}, y:{min:20,max:95,grid:GRID,ticks:TICK} }
+    }
+  });
+
+  new Chart(document.getElementById('c_n_radar'), {
+    type: 'radar',
+    data: {
+      labels: ['Reaktion','Entscheidung','Raumwahrnehm.','Gedächtnis','Mustererkennung','Konzentration'],
+      datasets: [
+        { label:'U17+U19 (Elite)', data:[77,72,80,64,69,68], borderColor:dg, backgroundColor:dg+'15', borderWidth:2.5, pointRadius:4 },
+        { label:'U11+U13 (Aufbau)',data:[62,56,66,50,54,52], borderColor:db, backgroundColor:db+'10', borderWidth:2,   pointRadius:3 },
+        { label:'NLZ-Ziel 2026',  data:[82,80,85,75,78,78], borderColor:A+'99', backgroundColor:'transparent', borderDash:[4,4], borderWidth:1.5, pointRadius:0 }
+      ]
+    },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins: { legend:{ display:true, position:'top', labels:{ color:'#8fafc8', boxWidth:10, font:{size:11} } }, tooltip:TT },
+      scales: { r:{ ticks:{display:false}, grid:{color:'rgba(255,255,255,0.05)'}, pointLabels:{color:'#8fafc8',font:{size:12}}, angleLines:{color:'rgba(255,255,255,0.05)'}, suggestedMin:30, suggestedMax:100 } }
+    }
+  });
+}
+
+function filterAge(group, btn) {
+  if (!ageChart) return;
+  document.querySelectorAll('.af-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const d = ageData[group];
+  ageChart.data.labels = d.labels;
+  ageChart.data.datasets[0].data = d.now;
+  ageChart.data.datasets[0].backgroundColor = d.colors;
+  ageChart.data.datasets[1].data = d.prev;
+  ageChart.data.datasets[1].backgroundColor = Array(d.labels.length).fill('rgba(255,255,255,0.05)');
+  ageChart.update();
+  const tag   = document.getElementById('age-card-tag');
+  const title = document.getElementById('age-card-title');
+  if (group==='all') { tag.textContent='U11–U21'; title.textContent='Ø BPI — Diese Woche vs. Vorwoche'; }
+  else               { tag.textContent=group;     title.textContent=`${group} — Ø BPI Diese Woche vs. Vorwoche`; }
+}
+
+// ── BPI BAR CHART WIDGET ─────────────────────────────────────
+
+// Full player dataset: [id, name, initials, pos, team, ageGroup, bpi(1–1000), trendDir, avBg, avCol, historyArr, radarArr]
+const BCW_DATA = [
+  // 1. Mannschaft
+  ['p1', 'M. Torres',   'MT','ST','1.Mannschaft','25+',  910,'up', 'rgba(255,190,61,0.15)',da,   [82,85,88,90,89,91,91],[96,92,94,85,89,91]],
+  ['p3', 'R. Kraft',    'RK','ZM','1.Mannschaft','21-25',870,'up', 'rgba(61,255,160,0.12)',G,    [80,81,83,85,86,86,87],[90,88,85,82,87,84]],
+  ['p6', 'L. Mayer',    'LM','MF','1.Mannschaft','21-25',800,'up', 'rgba(96,165,250,0.12)',db,   [62,65,68,71,74,76,80],[84,79,83,75,80,82]],
+  ['p9', 'N. Stern',    'NS','LA','1.Mannschaft','25+',  760,'up', 'rgba(34,211,238,0.10)',dc,   [70,71,72,73,74,75,76],[80,76,79,74,78,75]],
+  ['p12','K. Bauer',    'KB','IV','1.Mannschaft','25+',  730,'flat','rgba(148,163,184,0.1)',ds,  [68,69,70,72,73,72,73],[74,70,76,69,73,71]],
+  ['p11','J. Vogel',    'JV','RA','1.Mannschaft','21-25',710,'up', 'rgba(96,165,250,0.10)',db,   [65,66,68,69,70,70,71],[72,69,74,68,71,70]],
+  ['p16','A. Koch',     'AK','IV','1.Mannschaft','25+',  690,'flat','rgba(148,163,184,0.08)',ds, [64,65,66,67,68,69,69],[70,67,72,65,70,68]],
+  ['p17','S. Richter',  'SR','TW','1.Mannschaft','25+',  670,'dn', 'rgba(248,113,113,0.10)',dr,  [66,67,68,68,68,67,67],[68,65,70,64,68,67]],
+  ['p18','C. Braun',    'CB','ZM','1.Mannschaft','21-25',630,'dn', 'rgba(248,113,113,0.10)',dr,  [68,67,66,65,65,64,63],[65,62,67,60,64,62]],
+  ['p20','T. Weber',    'TW2','ST','1.Mannschaft','21-25',610,'dn','rgba(248,113,113,0.12)',dr,  [68,67,66,64,63,62,61],[63,60,65,58,62,60]],
+  ['p21','P. Lang',     'PL','TW','1.Mannschaft','25+',  480,'dn', 'rgba(251,191,36,0.10)',da,   [70,68,66,64,63,62,61],[63,59,65,57,62,59]],
+  ['p22','D. Herrmann', 'DH','RA','1.Mannschaft','21-25',310,'dn', 'rgba(248,113,113,0.14)',dr,  [66,64,61,58,57,55,54],[56,52,58,50,55,52]],
+  ['p23','F. Moll',     'FM2','IV','1.Mannschaft','25+', 220,'dn', 'rgba(248,113,113,0.16)',dr,  [65,62,58,54,52,50,49],[51,47,53,45,50,47]],
+  // 2. Mannschaft
+  ['p10','A. Ramos',    'AR','ST','2.Mannschaft','21-25',680,'up', 'rgba(245,200,66,0.10)',da,   [58,60,62,64,66,67,68],[72,68,74,64,69,72]],
+  ['p13','C. Diallo',   'CD','MF','2.Mannschaft','U21',  640,'up', 'rgba(167,139,250,0.10)',dv,  [54,56,58,60,62,63,64],[68,64,70,60,65,68]],
+  ['p15','M. Ebert',    'ME','IV','2.Mannschaft','21-25',620,'flat','rgba(148,163,184,0.08)',ds, [58,59,60,61,62,62,62],[66,62,68,58,63,66]],
+  ['p14','T. Osei',     'TO','ZM','2.Mannschaft','U21',  590,'up', 'rgba(34,211,238,0.08)',dc,   [50,52,54,56,57,58,59],[62,58,64,54,59,62]],
+  ['p19','B. Winter',   'BW','IV','2.Mannschaft','25+',  580,'dn', 'rgba(248,113,113,0.08)',dr,  [60,60,60,59,59,58,58],[62,58,64,54,59,62]],
+  // U21
+  ['p2', 'L. Vogt',     'LV','ST','U21',         'U21',  840,'up', 'rgba(245,200,66,0.12)',da,   [62,65,70,74,78,81,84],[88,84,90,80,85,88]],
+  ['p5', 'F. Meyer',    'FM','IV','U21',          'U21',  810,'up', 'rgba(167,139,250,0.12)',dv,  [60,63,67,71,75,78,81],[84,80,86,76,81,84]],
+  ['p7', 'T. Hassan',   'TH','ZM','U21',          'U21',  790,'up', 'rgba(96,165,250,0.10)',db,   [60,63,66,70,74,77,79],[82,78,84,74,79,82]],
+  // U19
+  ['q1', 'L. Vogt',     'LV','ST','U19',          'U21',  840,'up', 'rgba(245,200,66,0.12)',da,   [62,65,70,74,78,81,84],[88,84,90,80,85,88]],
+  ['q2', 'F. Meyer',    'FM','IV','U19',           'U21',  810,'up', 'rgba(167,139,250,0.12)',dv,  [60,63,67,71,75,78,81],[84,80,86,76,81,84]],
+  ['q3', 'K. Addo',     'KA','MF','U19',           'U21',  770,'up', 'rgba(34,211,238,0.10)',dc,   [58,61,64,67,70,73,77],[80,76,82,72,77,80]],
+  ['q4', 'E. Bernal',   'EB','ST','U19',           'U21',  720,'up', 'rgba(61,255,160,0.10)',G,    [55,58,61,64,67,70,72],[76,72,78,68,73,76]],
+  // U17
+  ['q5', 'K. Nkosi',    'KN','MF','U17',           'U21',  820,'up', 'rgba(56,217,245,0.12)',dc,   [64,67,71,74,77,80,82],[86,82,88,78,83,86]],
+  ['q6', 'S. Müller',   'SM','IV','U17',           'U21',  680,'up', 'rgba(96,165,250,0.10)',db,   [55,58,61,64,66,67,68],[72,68,74,64,69,72]],
+  ['q7', 'D. Reiter',   'DR','TW','U17',           'U21',  640,'up', 'rgba(52,211,153,0.10)',dg,   [52,55,58,60,62,63,64],[68,64,70,60,65,68]],
+  ['q8', 'A. Özkan',    'AO','ST','U17',           'U21',  590,'up', 'rgba(245,200,66,0.08)',da,   [48,51,54,56,57,58,59],[62,58,64,54,59,62]],
+  // U15
+  ['q9', 'P. Schwarz',  'PS','TW','U15',           'U21',  760,'up', 'rgba(52,211,153,0.10)',dg,   [55,58,61,65,69,72,76],[78,74,80,70,75,78]],
+  ['q10','J. Lindner',  'JL','MF','U15',           'U21',  620,'up', 'rgba(96,165,250,0.10)',db,   [50,52,54,57,59,61,62],[66,62,68,58,63,66]],
+  ['q11','R. Schneider','RS','IV','U15',           'U21',  570,'flat','rgba(148,163,184,0.08)',ds,  [48,50,52,54,55,56,57],[60,56,62,52,57,60]],
+  // U13
+  ['q12','T. Braun',    'TB','ST','U13',           'U21',  580,'up', 'rgba(245,200,66,0.08)',da,   [46,48,51,53,55,57,58],[62,58,64,54,59,62]],
+  ['q13','M. Jung',     'MJ','MF','U13',           'U21',  540,'up', 'rgba(96,165,250,0.08)',db,   [44,46,48,50,52,53,54],[58,54,60,50,55,58]],
+  ['q14','L. Wolf',     'LW','IV','U13',           'U21',  500,'up', 'rgba(52,211,153,0.08)',dg,   [42,44,46,48,49,50,50],[54,50,56,46,51,54]],
+  // U11
+  ['q15','N. Kaya',     'NK','ST','U11',           'U21',  530,'up', 'rgba(245,200,66,0.08)',da,   [40,42,44,46,48,51,53],[56,52,58,48,53,56]],
+  ['q16','F. Huber',    'FH','MF','U11',           'U21',  490,'up', 'rgba(167,139,250,0.08)',dv,  [38,40,42,44,46,48,49],[52,48,54,44,49,52]],
+  ['q17','B. Sahin',    'BS','IV','U11',           'U21',  450,'up', 'rgba(96,165,250,0.06)',db,   [36,38,40,42,43,44,45],[48,44,50,40,45,48]],
+];
+
+// Subsets per tab
+const BCW_SUBSETS = {
+  coach: BCW_DATA.filter(p => p[4]==='1.Mannschaft'),
+  nlz:   BCW_DATA.filter(p => ['U11','U13','U15','U17','U19','U21'].includes(p[4])),
+  pres:  BCW_DATA, // all players across all teams
+};
+
+// Active BCW filters per tab — all default 'all'
+const bcwFilters = {
+  coach: { count:'all', pos:'all', bpi:'all', trend:'all' },
+  nlz:   { team:'all', pot:'all', age:'all', trend:'all' },
+  pres:  { team:'all', bpi:'all', pos:'all', age:'all', trend:'all', scout:'all' },
+};
+
+function bcwBarColor(v) {
+  if (v >= 800) return dg;
+  if (v >= 600) return G;
+  if (v >= 400) return da;
+  return dr;
+}
+
+function bcwPassFilter(p, tab) {
+  const f = bcwFilters[tab];
+  const [id,name,init,pos,team,age,bpi,trend] = p;
+  if (tab === 'coach') {
+    if (f.pos !== 'all' && f.pos !== pos) return false;
+    if (f.trend !== 'all' && f.trend !== trend) return false;
+    if (f.bpi !== 'all') {
+      if (f.bpi === 'elite'    && bpi < 800)               return false;
+      if (f.bpi === 'gut'      && (bpi < 600||bpi >= 800)) return false;
+      if (f.bpi === 'kritisch' && bpi >= 400)               return false;
+    }
+    return true;
+  }
+  if (tab === 'nlz') {
+    if (f.team !== 'all' && f.team !== team) return false;
+    if (f.age  !== 'all' && f.age  !== age)  return false;
+    if (f.trend !== 'all' && f.trend !== trend) return false;
+    if (f.pot !== 'all') {
+      if (f.pot === 'top'    && bpi < 750)      return false;
+      if (f.pot === 'rising' && trend !== 'up') return false;
+    }
+    return true;
+  }
+  if (tab === 'pres') {
+    if (f.team  !== 'all' && f.team  !== team)  return false;
+    if (f.pos   !== 'all' && f.pos   !== pos)   return false;
+    if (f.age   !== 'all' && f.age   !== age)   return false;
+    if (f.trend !== 'all' && f.trend !== trend) return false;
+    if (f.bpi !== 'all') {
+      if (f.bpi === 'elite'    && bpi < 800)               return false;
+      if (f.bpi === 'gut'      && (bpi < 600||bpi >= 800)) return false;
+      if (f.bpi === 'mittel'   && (bpi < 400||bpi >= 600)) return false;
+      if (f.bpi === 'kritisch' && bpi >= 400)               return false;
+    }
+    if (f.scout !== 'all') {
+      if (f.scout === 'profi'    && bpi < 800)                 return false;
+      if (f.scout === 'transfer' && (bpi < 600||trend==='dn')) return false;
+      if (f.scout === 'foerder'  && (bpi >= 500||trend!=='dn'))return false;
+    }
+    return true;
+  }
+  return true;
+}
+
+function renderBcw(tab) {
+  const bodyEl = document.getElementById(`bcw-${tab}-body`);
+  if (!bodyEl) return;
+  bodyEl.innerHTML = '';
+
+  let data = BCW_SUBSETS[tab].filter(p => bcwPassFilter(p, tab));
+  if (tab==='coach' && bcwFilters.coach.count !== 'all') {
+    const top = bcwFilters.coach.count === 'top5' ? 5 : 10;
+    data = data.slice(0, top);
+  }
+  data.sort((a,b) => b[6]-a[6]);
+
+  if (!data.length) {
+    bodyEl.innerHTML = '<div class="bcw-empty">Kein Spieler entspricht dem Filter.</div>';
+    return;
+  }
+
+  // Compute max BPI in set for proportional label width
+  const maxBpi = data[0][6];
+
+  data.forEach((p, i) => {
+    const [id,name,init,pos,team,age,bpi,trend,avBg,avCol,hist,radar] = p;
+
+    // Map BPI 100–1000 to percentage of track width
+    // We leave ~45% of right side free for avatar + label
+    const trackPct = 55; // bar track takes 55% of row
+    const barPct   = Math.round(((bpi - 100) / 900) * 100); // 0–100 within track
+    const barCol   = bcwBarColor(bpi);
+    const trendEl  = trend==='up'
+      ? `<span style="color:${dg};font-family:var(--fm);font-size:10px">▲</span>`
+      : trend==='dn'
+      ? `<span style="color:${dr};font-family:var(--fm);font-size:10px">▼</span>`
+      : `<span style="color:${ds};font-family:var(--fm);font-size:10px">—</span>`;
+
+    const row = document.createElement('div');
+    row.className = 'bcw-row';
+    // Layout: [name 80px] [1px axis] [bar track flex] [avatar 28px] [name+bpi label]
+    row.innerHTML = `
+      <div class="bcw-ylabel">${name}</div>
+      <div class="bcw-axis-line"></div>
+      <div class="bcw-track">
+        <div class="bcw-bar" style="width:${barPct}%;background:linear-gradient(90deg,${barCol}33,${barCol}cc)"></div>
+        <div class="bcw-avatar" style="background:${avBg};color:${avCol};border-color:${barCol}88">${init}</div>
+        <div class="bcw-endlabel">
+          <span style="display:flex;align-items:center;gap:4px">
+            <span class="bcw-endname">${name.split(' ')[1] || name.split(' ')[0]}</span>
+            <span style="font-family:var(--fm);font-size:9px;color:var(--t3);background:var(--bg4);border:1px solid var(--b2);border-radius:3px;padding:0 4px">${team}</span>
+          </span>
+          <span style="display:flex;align-items:center;gap:3px">
+            <span class="bcw-endval" style="color:${barCol}">${bpi}</span>
+            ${trendEl}
+          </span>
+        </div>
+      </div>`;
+
+    row.addEventListener('click', () => {
+      const cp = players.find(pl => pl[1] === name);
+      if (cp) {
+        const [rank,n,p2,bpi2,score,sess,,,,,,h,r] = cp;
+        openDrilldown(rank,n,p2,bpi2,score,sess,h,r);
+      }
+    });
+    bodyEl.appendChild(row);
+  });
+}
+
+// ── PANEL OPEN / CLOSE ───────────────────────────────────────
+function openBcwPanel(tab, btn) {
+  const panel = document.getElementById('bcw-panel-' + tab);
+  const isOpen = panel.classList.contains('open');
+  document.querySelectorAll('.bcw-panel').forEach(p => p.classList.remove('open'));
+  document.querySelectorAll('.bcw-open-btn').forEach(b => b.classList.remove('open'));
+  if (!isOpen) { panel.classList.add('open'); btn.classList.add('open'); }
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.bcw-head')) {
+    document.querySelectorAll('.bcw-panel').forEach(p => p.classList.remove('open'));
+    document.querySelectorAll('.bcw-open-btn').forEach(b => b.classList.remove('open'));
+  }
+});
+
+function bcwChip(chip) {
+  const tab  = chip.dataset.tab;
+  const type = chip.dataset.type;
+  const val  = chip.dataset.val;
+  chip.closest('.bcw-chips').querySelectorAll('.bcw-chip').forEach(c => c.classList.remove('on'));
+  chip.classList.add('on');
+  bcwFilters[tab][type] = val;
+  renderBcw(tab);
+  updateBcwCount(tab);
+}
+
+function updateBcwCount(tab) {
+  const f = bcwFilters[tab];
+  const active = Object.values(f).filter(v => v !== 'all').length;
+  const el = document.getElementById('bcw-' + tab + '-count');
+  if (el) { el.textContent = active; el.classList.toggle('visible', active > 0); }
+}
+
+function bcwReset(tab) {
+  Object.keys(bcwFilters[tab]).forEach(k => bcwFilters[tab][k] = 'all');
+  document.querySelectorAll('#bcw-panel-' + tab + ' .bcw-chip').forEach(c => {
+    c.classList.toggle('on', c.dataset.val === 'all');
+  });
+  renderBcw(tab);
+  updateBcwCount(tab);
+}
+
+// ── TAB NAVIGATION ───────────────────────────────────────────
+function go(role) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  document.getElementById('page-' + role).classList.add('on');
+  document.getElementById('tab-'  + role).classList.add('on');
+  const accentMap = { coach: G, nlz: A, pres: '#e879f9' };
+  const labelMap  = { coach: 'Coach / Trainer', nlz: 'Jugendleiter / NLZ-Leiter', pres: 'Vereinspräsident' };
+  document.documentElement.style.setProperty('--active-accent', accentMap[role]);
+  document.getElementById('role-lbl').textContent = labelMap[role];
+  window.scrollTo({ top:0, behavior:'smooth' });
+  if (role === 'nlz')  setTimeout(() => { initNlzCharts(); renderBcw('nlz'); }, 100);
+  if (role === 'pres') setTimeout(() => { initPresCharts(); renderBcw('pres'); }, 150);
+}
+
+// Render coach BCW immediately on load
+
+
+const PRES_P = '#e879f9';
+
+// ── PRESIDENT: CHARTS ────────────────────────────────────────
+let presReady = false;
+
+function initPresCharts() {
+  if (presReady) return;
+  presReady = true;
+
+  new Chart(document.getElementById('c_p_teams'), {
+    type: 'bar',
+    data: {
+      labels: ['1. Mannschaft','2. Mannschaft','U21'],
+      datasets: [
+        { label:'Diese Woche', data:[74, 68, 61], backgroundColor:[PRES_P+'cc', db+'cc', dv+'cc'], borderRadius:5, barPercentage:0.6 },
+        { label:'Vorwoche',    data:[68, 60, 50], backgroundColor:['rgba(255,255,255,0.06)','rgba(255,255,255,0.06)','rgba(255,255,255,0.06)'], borderRadius:5, barPercentage:0.6 }
+      ]
+    },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins: { legend:{display:true,position:'top',labels:{color:'#8fafc8',boxWidth:10,font:{size:12}}}, tooltip:TT },
+      scales: { x:{grid:{display:false},ticks:{color:'#8fafc8',font:{size:12}}}, y:{min:0,max:100,grid:GRID,ticks:TICK} }
+    }
+  });
+
+  new Chart(document.getElementById('c_p_season'), {
+    type: 'line',
+    data: { labels: months, datasets: [
+      lds([62,64,67,69,71,72,74], PRES_P, '1. Mannschaft'),
+      lds([54,56,58,60,61,63,68], db,     '2. Mannschaft'),
+      lds([45,48,50,53,56,58,61], dv,     'U21'),
+    ]},
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins: { legend:{display:true,position:'top',labels:{color:'#8fafc8',boxWidth:10,font:{size:11}}}, tooltip:TT },
+      scales: { x:{grid:GRID,ticks:TICK}, y:{min:40,max:90,grid:GRID,ticks:TICK} }
+    }
+  });
+}
+
+// ── FULLSCREEN ───────────────────────────────────────────────
+let fsChart = null;
+
+function openFs(title, sub, chartKey) {
+  document.getElementById('fs-title').textContent = title;
+  document.getElementById('fs-sub').textContent   = sub;
+  const body = document.getElementById('fs-body');
+  body.innerHTML = '<div style="height:500px;position:relative"><canvas id="fs-canvas"></canvas></div>';
+  const overlay = document.getElementById('fs-overlay');
+  overlay.style.display = 'flex';
+  overlay.style.pointerEvents = 'all';
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => {
+    if (fsChart) { fsChart.destroy(); fsChart = null; }
+    const canvas = document.getElementById('fs-canvas');
+    if (!canvas) return;
+    const defs = {
+      'trend-coach': { type:'line', data:{ labels:allLabels, datasets:[
+          { label:'Tatsächlich', data:actualData, borderColor:G, backgroundColor:G+'14', borderWidth:3, pointBackgroundColor:G, pointRadius:[5,5,5,5,5,5,5,0,0,0], tension:0.42, fill:true },
+          { label:'Prognose +4 Wo.', data:forecastData, borderColor:G+'aa', backgroundColor:'transparent', borderWidth:2.5, borderDash:[6,4], pointBackgroundColor:G, pointRadius:[0,0,0,0,0,0,5,5,5,5], tension:0.42, fill:false },
+          { label:'Saisonziel 80', data:Array(10).fill(80), borderColor:da+'77', borderDash:[5,4], borderWidth:2, pointRadius:Array(10).fill(0), fill:false }
+        ]}, options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:true,labels:{color:'#8fafc8',font:{size:13}}},tooltip:TT }, scales:{ x:{grid:GRID,ticks:TICK}, y:{min:50,max:88,grid:GRID,ticks:TICK} } }
+      },
+      'radar-coach': { type:'radar', data:{ labels:['Reaktion','Entscheidung','Raumwahrnehm.','Gedächtnis','Mustererkennung','Konzentration'],
+          datasets:[
+            { label:'M. Torres', data:[96,92,94,85,89,91], borderColor:da, backgroundColor:da+'18', borderWidth:3, pointRadius:5 },
+            { label:'Team-Ø',    data:[83,78,86,61,68,63], borderColor:G+'99', backgroundColor:'transparent', borderDash:[4,4], borderWidth:2, pointRadius:0 }
+          ]}, options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:true,labels:{color:'#8fafc8',font:{size:13}}},tooltip:TT }, scales:{ r:{ ticks:{display:false}, grid:{color:'rgba(255,255,255,0.07)'}, pointLabels:{color:'#8fafc8',font:{size:14}}, angleLines:{color:'rgba(255,255,255,0.07)'}, suggestedMin:40,suggestedMax:100 } } }
+      },
+      'age-nlz': { type:'bar', data:{ labels:['U11','U13','U15','U17','U19','U21'], datasets:[
+          { label:'Diese Woche', data:ageData.all.now, backgroundColor:ageData.all.colors, borderRadius:6, barPercentage:0.6 },
+          { label:'Vorwoche',    data:ageData.all.prev, backgroundColor:Array(6).fill('rgba(255,255,255,0.06)'), borderRadius:6, barPercentage:0.6 }
+        ]}, options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:true,labels:{color:'#8fafc8',font:{size:13}}},tooltip:TT }, scales:{ x:{grid:{display:false},ticks:{color:'#8fafc8',font:{size:14}}}, y:{min:0,max:85,grid:GRID,ticks:TICK} } }
+      },
+      'trend-nlz': { type:'line', data:{ labels:months, datasets:[
+          lds([38,40,44,46,48,50,52],ds,'U11'), lds([44,46,49,51,53,55,57],db,'U13'),
+          lds([50,52,54,56,58,59,61],db,'U15'), lds([55,58,61,63,65,67,68],dc,'U17'),
+          lds([58,61,63,66,68,70,71],dv,'U19'), lds([48,50,52,54,56,59,61],da,'U21'),
+        ]}, options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:true,labels:{color:'#8fafc8',font:{size:13}}},tooltip:TT }, scales:{ x:{grid:GRID,ticks:TICK}, y:{min:30,max:80,grid:GRID,ticks:TICK} } }
+      },
+      'radar-nlz': { type:'radar', data:{ labels:['Reaktion','Entscheidung','Raumwahrnehm.','Gedächtnis','Mustererkennung','Konzentration'],
+          datasets:[
+            { label:'U17+U19 (Elite)', data:[77,72,80,64,69,68], borderColor:dg, backgroundColor:dg+'15', borderWidth:3, pointRadius:5 },
+            { label:'U11+U13 (Aufbau)',data:[62,56,66,50,54,52], borderColor:db, backgroundColor:db+'10', borderWidth:2.5, pointRadius:4 },
+            { label:'NLZ-Ziel 2026',  data:[82,80,85,75,78,78], borderColor:A+'99', backgroundColor:'transparent', borderDash:[4,4], borderWidth:2, pointRadius:0 }
+          ]}, options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:true,labels:{color:'#8fafc8',font:{size:13}}},tooltip:TT }, scales:{ r:{ ticks:{display:false}, grid:{color:'rgba(255,255,255,0.06)'}, pointLabels:{color:'#8fafc8',font:{size:13}}, angleLines:{color:'rgba(255,255,255,0.06)'}, suggestedMin:30,suggestedMax:100 } } }
+      },
+    };
+    const def = defs[chartKey];
+    if (def) fsChart = new Chart(canvas, def);
+  }, 80);
+}
+
+function closeFs() {
+  const overlay = document.getElementById('fs-overlay');
+  overlay.style.display = 'none';
+  overlay.style.pointerEvents = 'none';
+  document.body.style.overflow = '';
+  if (fsChart) { fsChart.destroy(); fsChart = null; }
+}
+
+function closeFsIfBg(e) { if (e.target === document.getElementById('fs-overlay')) closeFs(); }
+
+// ── PLAYER DRILLDOWN ─────────────────────────────────────────
+let ddTrend = null, ddRadar = null;
+
+const corrRows = [
+  { metric:'⚔️ Zweikampfrate gewonnen',  low:42,   high:78,   unit:'%',    lowBad:true  },
+  { metric:'🎯 Pass-Genauigkeit',         low:67,   high:84,   unit:'%',    lowBad:true  },
+  { metric:'⚡ Sprintgeschwindigkeit',    low:29.1, high:31.4, unit:' km/h',lowBad:true  },
+  { metric:'🧠 Fehlentscheidungen/Spiel', low:4.1,  high:1.4,  unit:'',     lowBad:false },
+  { metric:'⚽ Torschussbeteiligungen',  low:1.9,  high:3.6,  unit:'',     lowBad:true  },
+];
+
+function openDrilldown(rank, name, pos, bpi, score, sess, history, radar) {
+  const col   = bpiCol(bpi);
+  const delta = history[history.length-1] - history[history.length-2];
+  const proj  = Math.min(99, Math.round(bpi + delta * 4));
+
+  document.getElementById('dd-name').textContent = `${name} — Spieler-Detail`;
+  document.getElementById('dd-meta').textContent = `Position: ${pos}  ·  Rang: #${rank}/18  ·  FC Brain1  ·  Saison 2025/26`;
+
+  document.getElementById('dd-kpis').innerHTML = `
+    <div class="dd-kpi"><div class="dd-kpi-val" style="color:${col}">${bpi}</div><div class="dd-kpi-lbl">BPI Average</div></div>
+    <div class="dd-kpi"><div class="dd-kpi-val" style="color:${da}">${proj}</div><div class="dd-kpi-lbl">Prognose +4 Wo.</div></div>
+    <div class="dd-kpi"><div class="dd-kpi-val" style="color:${col}">${(score/1000).toFixed(1)}K</div><div class="dd-kpi-lbl">Ø Score</div></div>
+    <div class="dd-kpi"><div class="dd-kpi-val" style="color:var(--t2)">${sess}</div><div class="dd-kpi-lbl">Sessions</div></div>`;
+
+  const factor = bpi / 100;
+  document.getElementById('dd-corr').innerHTML = corrRows.map(r => {
+    const pVal  = r.lowBad
+      ? (r.low + (r.high - r.low) * factor).toFixed(r.unit.includes('%') ? 0 : 1)
+      : (r.high - (r.high - r.low) * (1 - factor) * 0.6).toFixed(1);
+    const pCol  = bpi >= 75 ? dg : bpi >= 60 ? da : dr;
+    const barW  = r.lowBad ? Math.round(factor * 100) : Math.round((1 - (1-factor)*0.6) * 100);
+    return `<div class="corr-row">
+      <div class="corr-metric">${r.metric}</div>
+      <div class="corr-bar-wrap" style="flex:1"><div class="corr-bar" style="width:${barW}%;background:${pCol}"></div></div>
+      <div class="corr-val" style="color:${pCol}">${pVal}${r.unit}</div>
+      <div class="corr-pct" style="color:var(--t3)">BPI ${bpi}</div>
+    </div>`;
+  }).join('');
+
+  const overlay = document.getElementById('dd-overlay');
+  overlay.style.display = 'flex';
+  overlay.style.pointerEvents = 'all';
+  document.body.style.overflow = 'hidden';
+
+  // Charts inside modal — build history arrays
+  const allL      = ['Okt','Nov','Dez','Jan','Feb','Mär','Apr','Mai','Jun','Jul'];
+  const paddedH   = [...history, null, null, null];
+  const fcData    = [null,null,null,null,null,null,
+    history[history.length-1],
+    Math.min(99, history[history.length-1] + delta),
+    Math.min(99, history[history.length-1] + delta * 2),
+    Math.min(99, history[history.length-1] + delta * 3)];
+
+  setTimeout(() => {
+    if (ddTrend) { ddTrend.destroy(); ddTrend = null; }
+    if (ddRadar) { ddRadar.destroy(); ddRadar = null; }
+
+    ddTrend = new Chart(document.getElementById('dd-chart-trend'), {
+      type: 'line',
+      data: { labels: allL, datasets: [
+        { label:'BPI Verlauf', data:paddedH, borderColor:col, backgroundColor:col+'14', borderWidth:2.5,
+          pointBackgroundColor:col, pointRadius:[4,4,4,4,4,4,4,0,0,0], tension:0.42, fill:true },
+        { label:'Prognose', data:fcData, borderColor:col+'aa', backgroundColor:'transparent', borderWidth:2, borderDash:[5,4],
+          pointBackgroundColor:col, pointRadius:[0,0,0,0,0,0,4,4,4,4], tension:0.42, fill:false }
+      ]},
+      options: { responsive:true, maintainAspectRatio:false,
+        plugins: { legend:{display:true,position:'top',labels:{color:'#8fafc8',boxWidth:8,font:{size:11}}}, tooltip:TT },
+        scales: { x:{grid:GRID,ticks:TICK}, y:{min:40,max:100,grid:GRID,ticks:TICK} }
+      }
+    });
+
+    ddRadar = new Chart(document.getElementById('dd-chart-radar'), {
+      type: 'radar',
+      data: {
+        labels: ['Reaktion','Entscheid.','Raumwahr.','Gedächtnis','Mustererk.','Konzentr.'],
+        datasets: [
+          { label:name, data:radar, borderColor:col, backgroundColor:col+'18', borderWidth:2.5, pointRadius:4 },
+          { label:'Team-Ø', data:[83,78,86,61,68,63], borderColor:'rgba(255,255,255,0.2)', backgroundColor:'transparent', borderDash:[4,4], borderWidth:1.5, pointRadius:0 }
+        ]
+      },
+      options: { responsive:true, maintainAspectRatio:false,
+        plugins: { legend:{display:true,position:'top',labels:{color:'#8fafc8',boxWidth:8,font:{size:11}}}, tooltip:TT },
+        scales: { r:{ ticks:{display:false}, grid:{color:'rgba(255,255,255,0.06)'}, pointLabels:{color:'#8fafc8',font:{size:10}}, angleLines:{color:'rgba(255,255,255,0.06)'}, suggestedMin:40,suggestedMax:100 } }
+      }
+    });
+  }, 80);
+}
+
+function closeDd() {
+  const overlay = document.getElementById('dd-overlay');
+  overlay.style.display = 'none';
+  overlay.style.pointerEvents = 'none';
+  document.body.style.overflow = '';
+}
+
+function closeDdIfBg(e) { if (e.target === document.getElementById('dd-overlay')) closeDd(); }
+</script>
+</body>
+</html>
